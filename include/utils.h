@@ -58,6 +58,6 @@ namespace util {
 #define DEFCOL "\033[0m"
 
 #define DERROR(fmt, x...) fprintf(stderr, REDBOLD fmt DEFCOL, ##x);
-#define DWARN(fmt, x...)  fprintf(stderr, YELLOW fmt DEFCOL, ##x);
+#define DWARN(fmt, x...)  fprintf(stderr, YELBOLD fmt DEFCOL, ##x);
 
 #endif

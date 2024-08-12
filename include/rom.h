@@ -71,15 +71,25 @@ public:
     ~rom();
     int CreateBlank(std::string filename);
     int open(std::string path);
+    int write(std::string file);
     /** @brief Opens file stored inside ROMFS
      * @return `RET_OK` or negative number (errno)
      */
     int openFile(std::string file, filefd* FD);
-    int addFile(std::string path);
+    int addFile(std::string path, bool isFixed = false);
+    /**
+     * @brief Inserts a dummy file filled with 0's to the filesystem
+     * @param name name of the dummy file. sony always used `-`
+     * @param dumysize size of the dummy file
+     * @param imagepos position in wich the file should be inserted. -1 means at top of file, 0 is illegal.
+     */
+    int addDummy(std::string name = "-", uint32_t dummysize, int imagepos = -1);
+    /** @brief returns RET_OK or -ENOENT */
     int fileExists(std::string filename);
     int GetExtInfoOffset(struct filefd *fd);
     int GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes);
     int AddExtInfoStat(FileEntry *file, uint8_t type, void *data, uint8_t nbytes);
+    int CheckExtInfoStat(filefd *fd, uint8_t type);
     void displayContents();
     /** @brief dump all image contents*/
     int dumpContents(void);
@@ -93,4 +103,5 @@ private:
      */
     int32_t findFSBegin();
     void *ReallocExtInfoArea(FileEntry *file, uint16_t nbytes);
+#define BOOTSTRAP_MAX_SIZE 0x40000
 };
