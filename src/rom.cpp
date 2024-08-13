@@ -78,7 +78,7 @@ int rom::open(std::string path) {
             if (fread(image.data, 1, image.size, F) == image.size) {
                 if (findFSBegin() >= 0) {
                     image.fstart_ptr = (uint8_t*)(image.data + image.fstart);
-                    util::hexdump(image.fstart_ptr, 64); //hexdump the filesystem (no bootstrap hexdump)
+                    //util::hexdump(image.fstart_ptr, 64);
                     if (openFile("RESET", &FD) != RET_OK) {
                         DERROR("Could not open RESET entry\n");
                         ret = -rerrno::ENORESET;
