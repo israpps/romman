@@ -42,7 +42,7 @@ int rom::CreateBlank(std::string path) {
     comment_len = 31 + strlen(filename.c_str()) + strlen(user) + strlen(Localhost) + strlen(cwd);
     rom::comment = (char*)MALLOC(comment_len);
     sprintf(rom::comment, "%08x,conffile,%s,%s@%s/%s",
-        rom::date, filename,
+        rom::date, filename.c_str(),
         (user == NULL) ? "" : user,
         Localhost, cwd);
 
@@ -388,6 +388,7 @@ int rom::addDummy(std::string name, uint32_t dummysize, int imagepos) {
     } else {
         files.insert(files.begin()+imagepos, file);
     }
+    return RET_OK;
 }
 
 int rom::AddExtInfoStat(FileEntry *file, uint8_t type, void *data, uint8_t nbytes)
@@ -523,7 +524,7 @@ void rom::displayContents()
                 break;
             default:
                 any++;
-                DERROR("Unknown EXTINFO type entry 0x%x at extinfo off 0x%x, len 0x%x, val 0x%x. HexDump:\n", 
+                DERROR("Unknown EXTINFO type entry 0x%x at extinfo off 0x%lx, len 0x%x, val 0x%x. HexDump:\n", 
                     ((ExtInfoFieldEntry*)S)->type,
                     sizeof(ExtInfoFieldEntry)*z,
                     ((ExtInfoFieldEntry*)S)->ExtLength,

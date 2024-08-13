@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <io.h>
 
 #if defined(_WIN32) || defined(WIN32)
+#include <io.h>
 #define MKDIR(dir) mkdir(dir);
 #define PATHSEP '\\'
 #define PATHSEPS "\\"

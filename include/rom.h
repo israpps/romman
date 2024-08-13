@@ -83,7 +83,7 @@ public:
      * @param dumysize size of the dummy file
      * @param imagepos position in wich the file should be inserted. -1 means at top of file, 0 is illegal.
      */
-    int addDummy(std::string name = "-", uint32_t dummysize, int imagepos = -1);
+    int addDummy(std::string name = "-", uint32_t dummysize = 0, int imagepos = -1);
     /** @brief returns RET_OK or -ENOENT */
     int fileExists(std::string filename);
     int GetExtInfoOffset(struct filefd *fd);
