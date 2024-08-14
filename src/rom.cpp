@@ -601,6 +601,10 @@ int rom::dumpContents(void) {
 #define FIX_ALIGN(x) \
     if ((FileAlignMargin = (ftell(OutputFile) % x)) > 0) fseek(OutputFile, x - FileAlignMargin, SEEK_CUR);
 
+int rom::write() {
+    return rom::write(img_filepath);
+}
+
 int rom::write(std::string file)
 {
     int result;

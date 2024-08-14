@@ -72,6 +72,7 @@ public:
     int CreateBlank(std::string filename);
     int open(std::string path);
     int write(std::string file);
+    int write();
     /** @brief Opens file stored inside ROMFS
      * @return `RET_OK` or negative number (errno)
      */
