@@ -130,7 +130,7 @@ std::string util::Basename(std::string path) {
         "\\"//windows cmd supports both separators, linux doesnt. match those behaviors
 #endif
         )) != std::string::npos) {
-            return path.substr(x);
+            return path.substr(x+1);
         } else {
             return path;
         }

@@ -17,6 +17,30 @@
 #define SANEPATHSEP '/'
 #define SANEPATHSEPS "/"
 
+
+#if defined(_WIN32) || defined(WIN32)
+#define REDBOLD ""
+#define YELBOLD ""
+#define GRNBOLD ""
+#define RED     ""
+#define DGREY   ""
+#define GREEN   ""
+#define YELLOW  ""
+#define WHITES  ""
+#define DEFCOL  ""
+#else
+#define REDBOLD "\033[1;31m"
+#define YELBOLD "\033[1;33m"
+#define GRNBOLD "\033[1;32m"
+#define RED     "\033[0;31m"
+#define DGREY   "\033[0;90m"
+#define GREEN   "\033[0;32m"
+#define YELLOW  "\033[0;33m"
+#define WHITES  "\033[1;97m"
+#define DEFCOL  "\033[0m"
+#endif
+
+
 struct memtrack_t {
     uint32_t fc = 0x0;//free() count
     uint32_t mc = 0x0;//malloc() count
@@ -43,19 +67,6 @@ namespace util {
     void genericgauge(float progress, std::string extra);
     int dirExists(std::string path);
 }
-
-#define REDBOLD "\033[1;31m"
-#define YELBOLD "\033[1;33m"
-#define GRNBOLD "\033[1;32m"
-
-#define RED "\033[0;31m"
-#define DGREY "\033[0;90m"
-#define GREEN "\033[0;32m"
-#define YELLOW "\033[0;33m"
-
-#define WHITES "\033[1;97m"
-
-#define DEFCOL "\033[0m"
 
 #define DERROR(fmt, x...) fprintf(stderr, REDBOLD fmt DEFCOL, ##x);
 #define DWARN(fmt, x...)  fprintf(stderr, YELBOLD fmt DEFCOL, ##x);

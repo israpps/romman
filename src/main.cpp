@@ -12,8 +12,10 @@
 const std::string buildate = __DATE__ " " __TIME__;
 
 uint32_t Gflags = 0x0;
+#define VERB() !(Gflags & SILENT)
 int submain(int argc, char** argv);
 int RunScript(std::string script);
+
 
 int main (int argc, char** argv) {
     if (argc < 2) {
@@ -26,7 +28,7 @@ int main (int argc, char** argv) {
         {
             //optional args
             if (!strcmp(argv[c], "--silent")) Gflags |= SILENT;
-            else if (!strcmp(argv[c], "--verbose") && !(Gflags & SILENT)) Gflags |= VERBOSE; // silent has priority
+            else if (!strcmp(argv[c], "--verbose") && VERB()) Gflags |= VERBOSE; // silent has priority
             //program operations
             else if (!strcmp(argv[c], "-c")) opbegin = c;
             else if (!strcmp(argv[c], "-d")) opbegin = c;
@@ -53,40 +55,44 @@ int main (int argc, char** argv) {
 }
 
 int submain(int argc, char** argv) {
-    if (!(Gflags & SILENT))
+    int ret = RET_OK;
+    if (VERB())
         std::cout << "#PlayStation2 ROM Manager v" <<MAJOR<<"."<<MINOR<<"."<<PATCH<<" compiled " << buildate << "\n";
     rom ROMIMG;
     if (!strcmp(argv[0], "-l") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
-            ROMIMG.displayContents();
+            ret = ROMIMG.displayContents();
         }
     } else 
     if (!strcmp(argv[0], "-x") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             if (argc == 2) {
-                ROMIMG.dumpContents();
+                ret = ROMIMG.dumpContents();
             } else {
                 for (int i = 2; i < argc; i++)
                 {
-                    if (ROMIMG.dumpContents(argv[i]) != 0) break;
+                    if ((ret = ROMIMG.dumpContents(argv[i])) != RET_OK) break;
                 }
             }
         }
     } else
     if (!strcmp(argv[0], "-c") && argc >= 2) {
-        if (!ROMIMG.CreateBlank(argv[1])) {
+        if (!(ret = ROMIMG.CreateBlank(argv[1]))) {
             for (int i = 2; i < argc; i++) {
-                ROMIMG.addFile(argv[i]);
+                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
             }
             
-            ROMIMG.write(argv[1]);
+            if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
         }
     } else
     if (!strcmp(argv[0], "-s") && argc >= 2) {
-        RunScript(argv[1]);
+        ret = RunScript(argv[1]);
     } 
 
 err:
+    if (ret != RET_OK) {
+        
+    }
     return 0;
 }
 
@@ -97,58 +103,176 @@ enum SS {
 
 #define np std::string::npos
 
+off_t GetFileSize(std::string filename)
+{
+    struct stat stat_buf;
+    int rc = stat(filename.c_str(), &stat_buf);
+    return rc == 0 ? stat_buf.st_size : -ENOENT;
+}
+
 class fixfile {
     public:
-    fixfile(std::string P1, size_t P2): fname(P1), offset(P2) {};
+    fixfile(std::string P1, size_t P2): fname(P1), offset(P2), fsize(GetFileSize(P1)) {/*DCOUT("Add file "<< fname << " off:" << offset << " siz:" << fsize <<"\n");*/};
+    fixfile(std::string P1, size_t P2, size_t P3): fname(P1), offset(P2), fsize(P3)   {/*DCOUT("Add file "<< fname << " off:" << offset << " siz:" << fsize <<"\n");*/};
     std::string fname;
     size_t offset;
+    off_t fsize;
+    static bool CompareOffset(fixfile A, fixfile B) {return (A.offset < B.offset);}
+    static bool CompareSize(fixfile A, fixfile B) {return (A.fsize > B.fsize);}
 };
 
 #define HEX(x) std::hex << x << std::dec
+#define CHKFILE(x) (GetFileSize(x)<0) ? -ENOENT : RET_OK
+#define CHKRESET(x) if (util::Basename(x) == "RESET") {ROMIMG.addFile(x, true); continue;}
+
+std::vector<fixfile> FFiles;
+std::vector<fixfile> CFiles;
+
+#define FFMT "%-25s %-8ld %-8ld"
+#define MAX_DEADGAP 128
+int WriteImage(rom* ROM) {
+    int ret = RET_OK;
+    bool gapforce = false;
+    off_t writtenbytes = 0x0;
+    off_t Tdeadgap = 0x0;
+    // iterate over the normal files and continuously check for fixed files possitions
+    size_t rem = CFiles.size() + FFiles.size();
+
+    std::sort(FFiles.begin(), FFiles.end(), fixfile::CompareOffset);
+/* #ifdef DEBUG
+     printf("%-20s %-10s %-8s\n", "Fixed file list", "offset", "size");
+     for (size_t x = 0; x < FFiles.size(); x++) printf(DGREY "%-20s" DEFCOL " 0x%08x %08ld\n", FFiles[x].fname.c_str(), FFiles[x].offset, FFiles[x].fsize);
+ #endif*/
+    printf("%-25s %-8s %-8s\n", "Files", "size", "offset");
+    for (size_t x = 0, z = 0; x < CFiles.size() || z < FFiles.size();)
+    {
+        off_t next_off = (writtenbytes + CFiles[x].fsize);
+        if (z < FFiles.size()) { // if fix pos file list is not empty
+            if (next_off > FFiles[z].offset) { // next file clashes
+                off_t gap = FFiles[z].offset - writtenbytes;
+
+                if (gap < MAX_DEADGAP || !(x < CFiles.size()) || gapforce)  { // gap is smaller than 256 || ran out of common files
+                    gapforce = false;
+                    ROM->addDummy("-", gap);
+                    printf(DGREY FFMT DEFCOL "\n", "-", gap, writtenbytes);
+                    writtenbytes += gap;
+                    Tdeadgap += gap;
+                } else {
+                    size_t chosen = 0;
+                    for (size_t a = x; a < CFiles.size(); a++)
+                    {
+                        if (CFiles[a].fsize < gap) { // file fits gap
+                            if (chosen) {
+                                if (CFiles[chosen].fsize < CFiles[a].fsize)
+                                    chosen = a;
+                            } else chosen = a;
+                        }
+                    }
+                    if (chosen) { // found gap filler. write it down and remove it from the array to avoid parsing it twice
+                        printf(FFMT "\n", CFiles[chosen].fname.c_str(), CFiles[chosen].fsize, writtenbytes);
+                        ROM->addFile(CFiles[chosen].fname, false);
+                        writtenbytes += CFiles[chosen].fsize;
+                        CFiles.erase(CFiles.begin()+chosen);
+                    } else gapforce = true; // gap filler not found, force the usage of blank gap filler.
+                    continue;
+                }
+                printf(YELBOLD FFMT " (%ld)" DEFCOL "\n", FFiles[z].fname.c_str(), FFiles[z].fsize, writtenbytes, FFiles[z].offset);
+                if (writtenbytes != FFiles[z].offset) {
+                    DERROR("FATAL ERROR\tCOULD NOT POSITION FIXED FILE AT REQUESTED OFFSET\n\tRequested Off:%ld (%lx)\n\tReal Off:%ld (%lx)\n", FFiles[z].offset, FFiles[z].offset, writtenbytes, writtenbytes);
+                    ret = -1;
+                    break;
+                }
+                ROM->addFile(FFiles[z].fname, true);
+                writtenbytes += FFiles[z].fsize;
+                z++;
+                continue;
+            }
+            // next file doesnt clash
+        }
+        if (x < CFiles.size()) { // condition in case we eat CFiles list before writing all FFiles
+            printf(FFMT "\n", CFiles[x].fname.c_str(), CFiles[x].fsize, writtenbytes);
+            ROM->addFile(CFiles[z].fname, false);
+            writtenbytes += CFiles[x].fsize;
+            x++;
+        }
+    }
+    if (ret == RET_OK) ROM->write();
+    printf("# Size of contents: %ld\n"
+           "# Files written: %u (%lu fixed, %lu normal)\n"
+           "# Space spent in dummy gaps: %d\n"
+           "", 
+           writtenbytes, rem, FFiles.size(), CFiles.size(),
+           Tdeadgap);
+    
+    return RET_OK;
+}
 
 int RunScript(std::string script) {
+    rom ROMIMG;
     std::cout << "# Running Script '" << script << "'\n";
-    std::regex cimg("CreateImage\\((.*)\\)");
-    std::regex wimg("WriteImage\\((.*)\\)");
-    std::regex addfil("AddFile\\((.*)\\)");
-    std::regex dfixfil("AddFixedFile\\((.*), ([0-9a-fA-F]+)\\)");
-    std::regex dfixfilhex("AddFixedFile\\((.*), (0[xX][0-9a-fA-F]+)\\)");
+    std::regex sort("SortBySize\\(\\)");
+    std::regex emptyline("$\\s+^");
+    std::regex cimg("CreateImage\\(\"(.*)\"\\)");
+    std::regex wimg("WriteImage\\(\"(.*)\"\\)");
+    std::regex addfil("AddFile\\(\"(.*)\"\\)");
+    std::regex dfixfil("AddFixedFile\\(\"(.*)\",\\s+([0-9a-fA-F]+)\\)");
+    std::regex dfixfilhex("AddFixedFile\\(\"(.*)\",\\s+(0[xX][0-9a-fA-F]+)\\)");
     std::smatch match;
 
-    std::vector<fixfile> FFiles;
-    std::vector<std::string> CFiles;
-    int ss = 0;
-    int ret = RET_OK;
+    FFiles.clear();
+    CFiles.clear();
+    int ss = 0,
+        dline = 0,
+        ret = RET_OK;
     std::string imagename = "";
     std::ifstream S(script);
     if (S.is_open()) {
         std::string line;
         while (getline(S, line))
         {
-            //std::cout << line <<"\n";
+            dline++;
             if (line.substr(0,1) == "#") continue;
             else if (std::regex_search(line, match, cimg) && imagename == "") {
-                std::cout << GRNBOLD "> image file: '" << match[1] << DEFCOL "'\n";
+                if (VERB()) std::cout << GRNBOLD "> Create image file: '" << match[1] << DEFCOL "'\n";
                 imagename = match[1];
+                ret = ROMIMG.CreateBlank(imagename);
             } else
             if (std::regex_search(line, match, dfixfil)) {
+                CHKRESET(match[1]);
                 int e = std::stoi(match[2]);
-                std::cout << YELBOLD "> File '"<< match[1] << "' at offset " << e << " (0x" << HEX(e) << ")"<< DEFCOL "\n";
+                if (VERB()) std::cout << YELBOLD "> Adding File '"<< match[1] << "' at offset " << e << " (0x" << HEX(e) << ")"<< DEFCOL "\n";
                 FFiles.push_back(fixfile(match[1], e));
+                ret = CHKFILE(match[1]);
             } else
             if (std::regex_search(line, match, dfixfilhex)) {
+                CHKRESET(match[1]);
                 int e = std::stoi(match[2],0,16);
-                std::cout << YELBOLD "> File '"<< match[1] << "' at offset " << e << " (0x" << HEX(e) << ")"<< DEFCOL "\n";
+                if (VERB()) std::cout << YELBOLD "> Adding File '"<< match[1] << "' at offset " << e << " (0x" << HEX(e) << ")"<< DEFCOL "\n";
                 FFiles.push_back(fixfile(match[1], e));
+                ret = CHKFILE(match[1]);
             } else
             if (std::regex_search(line, match, addfil)) {
-                std::cout << "> File '"<< match[1] << "'\n";
-                CFiles.push_back(match[1]);
+                CHKRESET(match[1]);
+                if (VERB()) std::cout << "> Adding File '"<< match[1] << "'\n";
+                CFiles.push_back(fixfile(match[1], 0));
+                ret = CHKFILE(match[1]);
             } else
             if (std::regex_search(line, match, wimg)) {
-                std::cout << GRNBOLD "> Write Image" DEFCOL "\n";
+                if (VERB()) std::cout << GRNBOLD "> Writing Image" DEFCOL "\n";
+                ret = WriteImage(&ROMIMG);
+            } else
+            if (std::regex_search(line, match, sort)) {
+                if (VERB()) std::cout << "> Sorting install files by size\n";
+                std::sort(CFiles.begin(), CFiles.end(), fixfile::CompareSize);
+            } else if (line != "" && !std::regex_search(line, match, emptyline)) {
+                printf(REDBOLD "Unknown sequence found at " DEFCOL "%s:%d\n" WHITES "'%s'" DEFCOL "\n",
+                script.c_str(), dline, line.c_str());
+                break;
             }
-            
+            if (ret != RET_OK) {
+                DERROR("# ERROR!  line:%d, err:%d, errno:\n\t%s", dline, ret, strerror(-ret));
+                break;
+            }
         }
         
     } else ret = -EIO;

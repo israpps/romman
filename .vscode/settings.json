@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "*.make": "makefile",
+        "*.romscript": "python",
         "new": "cpp",
         "iosfwd": "cpp",
         "fstream": "cpp",
@@ -46,6 +47,12 @@
         "ranges": "cpp",
         "stdexcept": "cpp",
         "streambuf": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "bitset": "cpp",
+        "cstring": "cpp",
+        "ctime": "cpp",
+        "map": "cpp",
+        "regex": "cpp",
+        "sstream": "cpp"
     }
 }

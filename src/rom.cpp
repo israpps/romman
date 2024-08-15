@@ -156,7 +156,7 @@ int32_t rom::findFSBegin() {
 }
 
 int rom::openFile(std::string file, filefd* FD) {
-    DPRINTF("Opening '%s'\n", file.c_str());
+    //DPRINTF("Opening '%s'\n", file.c_str());
     rom::DirEntry *E;
     memset(FD, 0, sizeof(filefd));
     int result;
@@ -468,8 +468,9 @@ int rom::fileExists(std::string filename)
     return result;
 }
 
-void rom::displayContents()
+int rom::displayContents()
 {
+    int ret = RET_OK;
     uint32_t TotalSize = 0;
     char filename[11];
     if (date != 0) {
@@ -485,7 +486,11 @@ void rom::displayContents()
         "#Props Name      \tSize   \tOffset\n"
         "#------------------------------------------\n");
 
-    for (size_t i = 0; i < files.size(); TotalSize += files[i].RomDir.size, i++) {
+
+    /**
+     * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
+     */
+    for (size_t i = 0; i < files.size(); TotalSize += (i != 0) ? files[i].RomDir.size : 0, i++) {
         int a=0;
         strncpy(filename, (const char*)files[i].RomDir.name, sizeof(filename) - 1);
         filename[sizeof(filename) - 1] = '\0';
@@ -523,8 +528,9 @@ void rom::displayContents()
                 any = hf = true;
                 break;
             default:
+                ret = -EPERM;
                 any++;
-                DERROR("Unknown EXTINFO type entry 0x%x at extinfo off 0x%lx, len 0x%x, val 0x%x. HexDump:\n", 
+                DERROR("# Unknown EXTINFO type entry 0x%x at extinfo off 0x%lx, len 0x%x, val 0x%x. Extinfo HexDump:\n", 
                     ((ExtInfoFieldEntry*)S)->type,
                     sizeof(ExtInfoFieldEntry)*z,
                     ((ExtInfoFieldEntry*)S)->ExtLength,
@@ -537,16 +543,17 @@ void rom::displayContents()
             }
         }
         printf("%c%c%c%c   ",
+            (hf) ? 'f' : '-',
             (hd) ? 'd' : '-',
             (hv) ? 'v' : '-',
-            (hc) ? 'c' : '-',
-            (hf) ? 'f' : '-'
+            (hc) ? 'c' : '-'
         );
         printf("%s", (!any) ? DGREY : (hf) ? YELBOLD : GREEN);
         printf("%-10s%s\t%-7d\t%d\n", filename, DEFCOL, files[i].RomDir.size, TotalSize);
     }
 
-    printf("\n#Total size: %u bytes.\n", TotalSize);
+    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize+files[0].RomDir.size, files.size());
+    return ret;
 }
 
 int rom::dumpContents(std::string file) {
@@ -574,12 +581,14 @@ int rom::dumpContents(std::string file) {
 }
 
 int rom::dumpContents(void) {
+    int ret = RET_OK;
     util::genericgaugepercent(0, "RESET");
     std::string imgn = util::Basename(rom::img_filepath); //base name of the image for building subdir dumppath
     std::string fol = "./ext_" + imgn + PATHSEPS;
 
     if (util::dirExists(fol)) MKDIR(fol.c_str());
-    for (size_t i = 0; i < files.size(); i++) {
+    size_t i;
+    for (i = 0; i < files.size(); i++) {
         if (files[i].RomDir.size > 0) {
             std::string dpath = fol + (char*)files[i].RomDir.name;
             FILE* F;
@@ -589,13 +598,15 @@ int rom::dumpContents(void) {
                 }
                 fclose(F);
             } else {
+                ret = -EIO;
                 DERROR("\nCan't create file: %s\n", dpath.c_str());
                 break;
             }
-        util::genericgaugepercent((i*100/(float)files.size()), (char*)files[i].RomDir.name);
+        util::genericgaugepercent(((i+1)*100)/(float)files.size(), (char*)files[i].RomDir.name);
         } else {DWARN("\nentry '%s' is 0 byte sized? skipping\n", (char*)files[i].RomDir.name);}
     }
-    return RET_OK;
+    printf("\n");
+    return ret;
 }
 
 #define FIX_ALIGN(x) \

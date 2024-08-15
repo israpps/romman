@@ -91,7 +91,7 @@ public:
     int GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes);
     int AddExtInfoStat(FileEntry *file, uint8_t type, void *data, uint8_t nbytes);
     int CheckExtInfoStat(filefd *fd, uint8_t type);
-    void displayContents();
+    int displayContents();
     /** @brief dump all image contents*/
     int dumpContents(void);
     /** @brief dump specific file */
