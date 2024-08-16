@@ -89,8 +89,7 @@ int util::getCWD(char *buffer, uint32_t BufferSize) {
 }
 
 
-uint32_t util::GetFileCreationDate(const char *path)
-{
+uint32_t util::GetFileCreationDate(const char *path) {
 #if defined(_WIN32) || defined(WIN32)
    HANDLE hFile;
    FILETIME CreationTime;
@@ -114,13 +113,83 @@ uint32_t util::GetFileCreationDate(const char *path)
 #endif
 }
 
+#include "ELF.h"
+
 bool util::IsSonyRXModule(std::string path) {
-    return RET_OK;
+	FILE *file;
+	elf_header_t header;
+	elf_shdr_t SectionHeader;
+	int result;
+
+	result = false;
+	if ((file = fopen(path.c_str(), "rb")) != NULL) {
+		fread(&header, 1, sizeof(elf_header_t), file);
+		if (*(uint32_t *)header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
+			unsigned int i;
+			for (i = 0; i < header.shnum; i++) {
+				fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
+				fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
+
+				if ((SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) || (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB))) {
+					result = true;
+					break;
+				}
+			}
+		}
+		fclose(file);
+	}
+	return result;
 }
 
 
 int util::GetSonyRXModInfo(std::string path, char *description, uint32_t MaxLength, uint16_t *version) {
-    return RET_OK;
+
+	FILE *file;
+	int result;
+	elf_header_t header;
+	elf_shdr_t SectionHeader;
+
+	result = -ENOENT;
+	if ((file = fopen(path.c_str(), "rb")) != NULL) {
+		fread(&header, 1, sizeof(elf_header_t), file);
+		if (*(uint32_t *)header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
+			unsigned int i;
+			for (i = 0; i < header.shnum; i++) {
+				fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
+				fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
+
+				if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB) || SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
+					void *buffer;
+                    buffer = MALLOC(SectionHeader.size);
+					if (buffer != NULL) {
+						fseek(file, SectionHeader.offset, SEEK_SET);
+						fread(buffer, 1, SectionHeader.size, file);
+
+						if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
+							*version = ((iopmod_t *)buffer)->version;
+							strncpy(description, ((iopmod_t *)buffer)->modname, MaxLength - 1);
+							description[MaxLength - 1] = '\0';
+						} else if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) {
+							*version = ((eemod_t *)buffer)->version;
+							strncpy(description, ((eemod_t *)buffer)->modname, MaxLength - 1);
+							description[MaxLength - 1] = '\0';
+						}
+
+						result = RET_OK;
+
+						FREE(buffer);
+					} else
+						result = -ENOMEM;
+					break;
+				}
+			}
+		} else
+			result = -EINVAL;
+
+		fclose(file);
+	} else
+		result = -ENOENT;
+	return result;
 }
 
 std::string util::Basename(std::string path) {
@@ -156,11 +225,11 @@ void util::genericgauge(float progress, std::string extra)
     for (int i = 0; i < barWidth; ++i)
 	{
 	  if (i < pos)
-		std::cout << "=";
+	    std::cout << "=";
 	  else if (i == pos)
-		std::cout << ">";
+	    std::cout << ">";
 	  else
-		std::cout << " ";
+	    std::cout << " ";
 	}
     std::cout << "] " << int (progress * 100.0) << "% [" << extra <<"]        \r";
     std::cout.flush ();
