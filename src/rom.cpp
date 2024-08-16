@@ -423,7 +423,7 @@ int rom::AddExtInfoStat(FileEntry *file, uint8_t type, void *data, uint8_t nbyte
         break;
     case EXTINFO_FIELD_TYPE_VERSION:
     case EXTINFO_FIELD_TYPE_FIXED:
-            if (nbytes == 2 && type == EXTINFO_FIELD_TYPE_VERSION) {
+            if (nbytes != 2 && type == EXTINFO_FIELD_TYPE_VERSION) {
                 result = -EINVAL; 
                 break;
             }
