@@ -165,7 +165,6 @@ int WriteImage(rom* ROM) {
         if (z < FFiles.size()) { // if fix pos file list is not empty
             if (next_off > FFiles[z].offset) { // next file clashes
                 off_t gap = FFiles[z].offset - writtenbytes;
-
                 if (gap < MAX_DEADGAP || !(x < CFiles.size()) || gapforce)  { // gap is smaller than 256 || ran out of common files
                     gapforce = false;
                     ROM->addDummy("-", gap);
@@ -202,6 +201,17 @@ int WriteImage(rom* ROM) {
                 writtenbytes += FFiles[z].fsize;
                 z++;
                 continue;
+            } else if (!(x < CFiles.size())) { // we have remaining fixed files, no more normal files!!!
+                off_t gap = FFiles[z].offset - writtenbytes;
+                ROM->addDummy("-", gap);
+                printf(DGREY FFMT DEFCOL "\n", "-", gap, writtenbytes);
+                writtenbytes += gap;
+                Tdeadgap += gap;
+
+                printf(YELBOLD FFMT " (%ld)" DEFCOL "\n", FFiles[z].fname.c_str(), FFiles[z].fsize, writtenbytes, FFiles[z].offset);
+                ROM->addFile(FFiles[z].fname, true);
+                writtenbytes += FFiles[z].fsize;
+                z++;
             }
             // next file doesnt clash
         }
