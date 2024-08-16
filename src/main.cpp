@@ -173,6 +173,7 @@ int WriteImage(rom* ROM) {
                     writtenbytes += gap;
                     Tdeadgap += gap;
                 } else {
+                    //DPRINTF("Gap too long. looking for another file\n");
                     size_t chosen = 0;
                     for (size_t a = x; a < CFiles.size(); a++)
                     {
@@ -206,7 +207,7 @@ int WriteImage(rom* ROM) {
         }
         if (x < CFiles.size()) { // condition in case we eat CFiles list before writing all FFiles
             printf(FFMT "\n", CFiles[x].fname.c_str(), CFiles[x].fsize, writtenbytes);
-            ROM->addFile(CFiles[z].fname, false);
+            ROM->addFile(CFiles[x].fname, false);
             writtenbytes += CFiles[x].fsize;
             x++;
         }

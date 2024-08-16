@@ -115,12 +115,12 @@ uint32_t util::GetFileCreationDate(const char *path)
 }
 
 bool util::IsSonyRXModule(std::string path) {
-    return 0;
+    return RET_OK;
 }
 
 
 int util::GetSonyRXModInfo(std::string path, char *description, uint32_t MaxLength, uint16_t *version) {
-    return 0;
+    return RET_OK;
 }
 
 std::string util::Basename(std::string path) {

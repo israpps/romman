@@ -32,7 +32,7 @@ int rom::CreateBlank(std::string path) {
 
     date = util::GetSystemDate();
 #if defined(_WIN32) || defined(WIN32)
-    user = getenv("user");
+    user = getenv("USERNAME");
 #else
     user = getenv("USER");
 #endif
@@ -306,6 +306,7 @@ int rom::CheckExtInfoStat(filefd *fd, uint8_t type)
 
 int rom::addFile(std::string path, bool isFixed)
 {
+    //DPRINTF("%s(%s) %d cnt\n", __FUNCTION__, path.c_str(), files.size());
     size_t x;
     FILE *F;
     int result = RET_OK;
@@ -342,8 +343,10 @@ int rom::addFile(std::string path, bool isFixed)
                     fread(file.FileData, 1, size, F);
                     files.push_back(file);
                 }
-            } else
+            } else {
+                DWARN("# '%s' file already exists in image \n", Fname)
                 result = -EEXIST;
+            }
         } else {
             if (size > BOOTSTRAP_MAX_SIZE) {
                 DERROR("# ERROR: requested file exceeds max size for bootstrap program\n"
@@ -365,8 +368,10 @@ int rom::addFile(std::string path, bool isFixed)
         }
 
         fclose(F);
-    } else
+    } else {
+        DERROR("Cannot open %s\n", path.c_str());
         result = -ENOENT;
+    }
 
     return result;
 }
@@ -482,9 +487,9 @@ int rom::displayContents()
     printf("# has bootstrap: %s\n", (rom::image.fstart == 0) ? "No" : GRNBOLD "Yes" DEFCOL);
 
     printf(
-        "# File list:\n"
+        "# File list: (%d)\n"
         "#Props Name      \tSize   \tOffset\n"
-        "#------------------------------------------\n");
+        "#------------------------------------------\n", files.size());
 
 
     /**
@@ -618,6 +623,7 @@ int rom::write() {
 
 int rom::write(std::string file)
 {
+    //DPRINTF("Create image %s with %d files\n", file.c_str(), files.size());
     int result;
     unsigned char *extinfo;
     rom::DirEntry ROMDIR_romdir, EXTINFO_romdir, NULL_romdir;
@@ -636,7 +642,7 @@ int rom::write(std::string file)
         }
     }
     TotalExtInfoSize += CommentLengthRounded + (2 * sizeof(ExtInfoFieldEntry));
-    DPRINTF("Extinfo size will be %u\n", TotalExtInfoSize);
+    DPRINTF("# Extinfo size will be %u\n", TotalExtInfoSize);
     extinfo = (unsigned char*)MALLOC(TotalExtInfoSize);
     if (extinfo != NULL) {
         memset(&NULL_romdir, 0, sizeof(NULL_romdir));
@@ -693,11 +699,15 @@ int rom::write(std::string file)
 
             // Write out the file data, excluding the content of RESET, which was done above.
             for (i = 1; i < files.size(); i++) {
+                //DPRINTF("wrt fil %d %d\n", files[i].FileData, files[i].RomDir.size);
                 fwrite(files[i].FileData, 1, files[i].RomDir.size, OutputFile);
                 FIX_ALIGN(16);
             }
 
             fclose(OutputFile);
+        } else {
+            DERROR("Cannot open output image file '%s'\n", file.c_str());
+            result = -EIO;
         }
 
     } else

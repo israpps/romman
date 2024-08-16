@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#define RET_OK 0
+
 #if defined(_WIN32) || defined(WIN32)
 #include <io.h>
 #define MKDIR(dir) mkdir(dir);

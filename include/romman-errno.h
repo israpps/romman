@@ -5,5 +5,6 @@ enum rerrno {
     ERESETSIZEMTCH, // `RESET` size does not match bootstrap size
     ENOXTINF, // could not find `EXTINFO` entry
     ENOROMDIR, // could not find `ROMDIR` entry
+    EIMPOSSIBLE, // Illegal or imposible request
 };
 #endif

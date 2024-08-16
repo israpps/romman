@@ -14,8 +14,6 @@ struct filefd
    uint16_t ExtInfoEntrySize;
 };
 
-#define RET_OK 0
-
 class rom
 {
 private:
