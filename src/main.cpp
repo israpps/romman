@@ -15,12 +15,14 @@ uint32_t Gflags = 0x0;
 #define VERB() !(Gflags & SILENT)
 int submain(int argc, char** argv);
 int RunScript(std::string script);
-
+int help();
 
 int main (int argc, char** argv) {
+    int ret = RET_OK;
     if (argc < 2) {
         DERROR("# No argumments provided\n");
         printf("# %s " DGREY "[flags]" DEFCOL " <operation> file(s)\n", argv[0]);
+        printf("# use '%s -h' to see available commands\n");
         return 1;
     } else {
         int opbegin = -ENOENT;//where the operation flag was found
@@ -28,6 +30,7 @@ int main (int argc, char** argv) {
         {
             //optional args
             if (!strcmp(argv[c], "--silent")) Gflags |= SILENT;
+            if (!strcmp(argv[c], "-h")) {return help();}
             else if (!strcmp(argv[c], "--verbose") && VERB()) Gflags |= VERBOSE; // silent has priority
             //program operations
             else if (!strcmp(argv[c], "-c")) opbegin = c;
@@ -37,7 +40,7 @@ int main (int argc, char** argv) {
             else if (!strcmp(argv[c], "-a")) opbegin = c;
             else if (!strcmp(argv[c], "-s")) opbegin = c;
         }
-        if (opbegin != -ENOENT) submain(argc-opbegin, argv+opbegin);
+        if (opbegin != -ENOENT) ret = submain(argc-opbegin, argv+opbegin);
     }
 
     // The following code must be executed after all instances of class rom are destroyed!
@@ -51,7 +54,7 @@ int main (int argc, char** argv) {
         MTR.rc
         );
     }
-    return RET_OK;
+    return ret;
 }
 
 int submain(int argc, char** argv) {
@@ -135,14 +138,26 @@ int WriteImage(rom* ROM) {
     bool gapforce = false;
     off_t writtenbytes = 0x0;
     off_t Tdeadgap = 0x0;
-    // iterate over the normal files and continuously check for fixed files possitions
     size_t rem = CFiles.size() + FFiles.size();
 
     std::sort(FFiles.begin(), FFiles.end(), fixfile::CompareOffset);
-/* #ifdef DEBUG
-     printf("%-20s %-10s %-8s\n", "Fixed file list", "offset", "size");
-     for (size_t x = 0; x < FFiles.size(); x++) printf(DGREY "%-20s" DEFCOL " 0x%08x %08ld\n", FFiles[x].fname.c_str(), FFiles[x].offset, FFiles[x].fsize);
- #endif*/
+    int off = 0;
+    for (size_t o=0, off=0; o < FFiles.size(); o++)
+    {
+        if (off >= FFiles[o].offset) {
+            DERROR("FATAL ERROR: Fixed file at position %d collides with %d\n"
+                    "File 1: " FFMT "\n"
+                    "File 2: " FFMT "\n",
+                    o-1, o,
+                    FFiles[o-1].fname.c_str(), FFiles[o-1].fsize, writtenbytes, FFiles[o-1].offset,
+                    FFiles[o].fname.c_str(), FFiles[o].fsize, writtenbytes, FFiles[o].offset
+                    );
+            ret = -EIMPOSSIBLE;
+        }
+        off = FFiles[o].offset + FFiles[o].fsize; // record where this fixed file ends so next iteration can detect a clash
+    }
+    
+
     printf("%-25s %-8s %-8s\n", "Files", "size", "offset");
     for (size_t x = 0, z = 0; x < CFiles.size() || z < FFiles.size();)
     {
@@ -213,7 +228,7 @@ int RunScript(std::string script) {
     std::regex sort("SortBySize\\(\\)");
     std::regex emptyline("$\\s+^");
     std::regex cimg("CreateImage\\(\"(.*)\"\\)");
-    std::regex wimg("WriteImage\\(\"(.*)\"\\)");
+    std::regex wimg("WriteImage\\(\\)");
     std::regex addfil("AddFile\\(\"(.*)\"\\)");
     std::regex dfixfil("AddFixedFile\\(\"(.*)\",\\s+([0-9a-fA-F]+)\\)");
     std::regex dfixfilhex("AddFixedFile\\(\"(.*)\",\\s+(0[xX][0-9a-fA-F]+)\\)");
@@ -279,4 +294,29 @@ int RunScript(std::string script) {
     if (ret == RET_OK) {
     }
     return ret;
+}
+
+
+int help() {
+    printf("# Supported commands:\n"
+    "\t-c <new_image> <files...>\n"
+    "\t\tCreate a new ROM image with some files\n"
+
+//    "\t-d\t NOT IMPLEMENTED\n"
+
+    "\t-x <image> <files...>\n"
+    "\t\tExtracts contents of the ROM Image.\n"
+    "\t\tif no additional params are provided it dumps whole image to subfolder by the name ext_<image>\n"
+
+    "\t-l <image>\n"
+    "\t\tList the contents of the image\n"
+
+    "\t-a <image> <files...>\n"
+    "\t\tAdd file(s) to existing image\n"
+
+    "\t-s <file>"
+    "\t\t Run a romman script\n"
+    "\t\t more info about script language at " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n"
+    );
+    return 1;
 }
