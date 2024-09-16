@@ -41,7 +41,7 @@ int rom::CreateBlank(std::string path) {
     util::getCWD(cwd, sizeof(cwd));
     comment_len = 31 + strlen(filename.c_str()) + strlen(user) + strlen(Localhost) + strlen(cwd);
     rom::comment = (char*)MALLOC(comment_len);
-    sprintf(rom::comment, "%08x,conffile,%s,%s@%s/%s",
+    snprintf(rom::comment, sizeof(rom::comment), "%08x,conffile,%s,%s@%s/%s",
         rom::date, filename.c_str(),
         (user == NULL) ? "" : user,
         Localhost, cwd);
