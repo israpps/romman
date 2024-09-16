@@ -19,7 +19,7 @@ rom::~rom() {
         if (files[x].FileData != nullptr) {FREE(files[x].FileData);}
     }
     files.clear();
-    
+
 }
 
 int rom::CreateBlank(std::string path) {
@@ -105,7 +105,7 @@ int rom::open(std::string path) {
                     GetExtInfoOffset(&FD);
                     FileEntry file;
                     while (R->name[0] != '\0') {
-                        if (strncmp((const char*)R->name, "ROMDIR",  sizeof(R->name)) != 0 && 
+                        if (strncmp((const char*)R->name, "ROMDIR",  sizeof(R->name)) != 0 &&
                             strncmp((const char*)R->name, "EXTINFO", sizeof(R->name)) != 0) {
                             memset(&file, 0x0, sizeof(rom::FileEntry));
                             //file = &ROMImg->files[ROMImg->NumFiles - 1];
@@ -145,7 +145,7 @@ int32_t rom::findFSBegin() {
             ((const char *)image.data)[i + 3] == 'E' &&
             ((const char *)image.data)[i + 4] == 'T') {
 #ifndef DEBUG
-            if (Gflags & VERBOSE) 
+            if (Gflags & VERBOSE)
 #endif
                 printf("# Image filesystem begins at 0x%05x\n", i);
             image.fstart = i;
@@ -253,7 +253,7 @@ int rom::GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes
             }
             offset += sizeof(struct ExtInfoFieldEntry);
         } else {
-            DERROR("Unknown EXTINFO entry type: 0x%02x @ ROM offset: 0x%x | EXTINFO offset: %u\n", 
+            DERROR("Unknown EXTINFO entry type: 0x%02x @ ROM offset: 0x%x | EXTINFO offset: %u\n",
                 E->type,
                 fd->ExtInfoOffset + offset,
                 offset);
@@ -292,7 +292,7 @@ int rom::CheckExtInfoStat(filefd *fd, uint8_t type)
             }
             offset += sizeof(struct ExtInfoFieldEntry);
         } else {
-            DERROR("Unknown EXTINFO entry type: 0x%02x @ ROM offset: 0x%x | EXTINFO offset: %u\n", 
+            DERROR("Unknown EXTINFO entry type: 0x%02x @ ROM offset: 0x%x | EXTINFO offset: %u\n",
                 E->type,
                 fd->ExtInfoOffset + offset,
                 offset);
@@ -324,7 +324,7 @@ int rom::addFile(std::string path, bool isFixed)
         if (strcmp(Fname, "RESET")) {
             if (rom::fileExists(Fname) != RET_OK) {
                 memset(&file, 0, sizeof(FileEntry));
-                strncpy((char*)file.RomDir.name, Fname, sizeof(FileEntry::RomDir.name));
+                strncpy((char*)file.RomDir.name, Fname, sizeof(file.RomDir.name));
                 file.RomDir.ExtInfoEntrySize = 0;
                 FileDateStamp = util::GetFileCreationDate(path.c_str());
                 AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_DATE, &FileDateStamp, 4);
@@ -383,7 +383,7 @@ int rom::addDummy(std::string name, uint32_t dummysize, int imagepos) {
     }
     FileEntry file;
     memset(&file, 0, sizeof(FileEntry));
-    strncpy((char*)file.RomDir.name, name.c_str(), sizeof(FileEntry::RomDir.name));
+    strncpy((char*)file.RomDir.name, name.c_str(), sizeof(file.RomDir.name));
     file.RomDir.ExtInfoEntrySize = 0;
     file.RomDir.size = dummysize;
     file.FileData = MALLOC(dummysize);
@@ -424,7 +424,7 @@ int rom::AddExtInfoStat(FileEntry *file, uint8_t type, void *data, uint8_t nbyte
     case EXTINFO_FIELD_TYPE_VERSION:
     case EXTINFO_FIELD_TYPE_FIXED:
             if (nbytes != 2 && type == EXTINFO_FIELD_TYPE_VERSION) {
-                result = -EINVAL; 
+                result = -EINVAL;
                 break;
             }
             if (ReallocExtInfoArea(file, 0) != NULL) {
@@ -465,7 +465,7 @@ int rom::fileExists(std::string filename)
     unsigned int x;
 
     for (x = 0; x < files.size(); x++) {
-        if (strncmp((const char*)files[x].RomDir.name, filename.c_str(), sizeof(FileEntry::RomDir.name)) == 0) {
+        if (strncmp((const char*)files[x].RomDir.name, filename.c_str(), sizeof(files[x].RomDir.name)) == 0) {
             result = RET_OK;
             break;
         }
@@ -535,7 +535,7 @@ int rom::displayContents()
             default:
                 ret = -EPERM;
                 any++;
-                DERROR("# Unknown EXTINFO type entry 0x%x at extinfo off 0x%lx, len 0x%x, val 0x%x. Extinfo HexDump:\n", 
+                DERROR("# Unknown EXTINFO type entry 0x%x at extinfo off 0x%lx, len 0x%x, val 0x%x. Extinfo HexDump:\n",
                     ((ExtInfoFieldEntry*)S)->type,
                     sizeof(ExtInfoFieldEntry)*z,
                     ((ExtInfoFieldEntry*)S)->ExtLength,
@@ -565,7 +565,7 @@ int rom::dumpContents(std::string file) {
     uint32_t TotalSize = 0;
     int ret = -ENOENT;
     for (size_t i = 0; i < files.size(); TotalSize += files[i].RomDir.size, i++) {
-        if (!strncmp(file.c_str(), (const char*)files[i].RomDir.name, sizeof(FileEntry::RomDir.name))) {
+        if (!strncmp(file.c_str(), (const char*)files[i].RomDir.name, sizeof(files[i].RomDir.name))) {
             if (files[i].RomDir.size > 0) {
                 FILE* F;
                 if ((F = fopen(file.c_str(), "wb")) != NULL) {
