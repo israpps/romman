@@ -20,8 +20,8 @@ void util::hexdump(const void* data, uint32_t size, bool hdr) {
         for (i = 0; i < 23; i++) printf("---");
         printf("\n");
     }
-    
-    
+
+
     for (i = 0; i < size; ++i) {
         if (((unsigned char*)data)[i] == 0) printf(DGREY);
         printf("%02X ", ((unsigned char*)data)[i]);

@@ -35,3 +35,9 @@ build*/
 ext_*/
 *.bin
 scripts/rebuild/rebuild.romscript
+
+.*
+!.gitignore
+!.gitattributes
+!.github
+!.editorconfig

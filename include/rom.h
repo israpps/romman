@@ -29,7 +29,7 @@ private:
         }sdate;
     };
     char *comment = nullptr;
-    
+
     struct _image {
         uint8_t *data = nullptr; // pointer to readed file. freed on destructor
         long size = 0x0; //size of image allocated in ram

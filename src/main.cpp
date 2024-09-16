@@ -66,7 +66,7 @@ int submain(int argc, char** argv) {
         if (!ROMIMG.open(argv[1])) {
             ret = ROMIMG.displayContents();
         }
-    } else 
+    } else
     if (!strcmp(argv[0], "-x") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             if (argc == 2) {
@@ -84,17 +84,17 @@ int submain(int argc, char** argv) {
             for (int i = 2; i < argc; i++) {
                 if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
             }
-            
+
             if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
         }
     } else
     if (!strcmp(argv[0], "-s") && argc >= 2) {
         ret = RunScript(argv[1]);
-    } 
+    }
 
 err:
     if (ret != RET_OK) {
-        
+
     }
     return 0;
 }
@@ -156,7 +156,7 @@ int WriteImage(rom* ROM) {
         }
         off = FFiles[o].offset + FFiles[o].fsize; // record where this fixed file ends so next iteration can detect a clash
     }
-    
+
 
     printf("%-25s %-8s %-8s\n", "Files", "size", "offset");
     for (size_t x = 0, z = 0; x < CFiles.size() || z < FFiles.size();)
@@ -226,10 +226,10 @@ int WriteImage(rom* ROM) {
     printf("# Size of contents: %ld\n"
            "# Files written: %u (%lu fixed, %lu normal)\n"
            "# Space spent in dummy gaps: %d\n"
-           "", 
+           "",
            writtenbytes, rem, FFiles.size(), CFiles.size(),
            Tdeadgap);
-    
+
     return RET_OK;
 }
 
@@ -300,7 +300,7 @@ int RunScript(std::string script) {
                 break;
             }
         }
-        
+
     } else ret = -EIO;
     if (ret == RET_OK) {
     }
