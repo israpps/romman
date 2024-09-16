@@ -22,7 +22,7 @@ int main (int argc, char** argv) {
     if (argc < 2) {
         DERROR("# No argumments provided\n");
         printf("# %s " DGREY "[flags]" DEFCOL " <operation> file(s)\n", argv[0]);
-        printf("# use '%s -h' to see available commands\n");
+        printf("# use '%s -h' to see available commands\n", argv[0]);
         return 1;
     } else {
         int opbegin = -ENOENT;//where the operation flag was found
