@@ -313,7 +313,8 @@ int rom::addFile(std::string path, bool isFixed)
     uint32_t FileDateStamp;
     uint16_t FileVersion;
     if ((F = fopen(path.c_str(), "rb")) != NULL) {
-        const char* Fname = util::Basename(path).c_str();
+        std::string basename = util::Basename(path);
+        const char* Fname = basename.c_str();  // Now Fname is safe to use
         int size;
         fseek(F, 0, SEEK_END);
         size = ftell(F);
@@ -487,7 +488,7 @@ int rom::displayContents()
     printf("# has bootstrap: %s\n", (rom::image.fstart == 0) ? "No" : GRNBOLD "Yes" DEFCOL);
 
     printf(
-        "# File list: (%d)\n"
+        "# File list: (%zu)\n"
         "#Props Name      \tSize   \tOffset\n"
         "#------------------------------------------\n", files.size());
 
