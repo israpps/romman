@@ -88,6 +88,15 @@ int submain(int argc, char** argv) {
             if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
         }
     } else
+    if (!strcmp(argv[0], "-a") && argc >= 2) {
+        if (!ROMIMG.open(argv[1])) {
+            for (int i = 2; i < argc; i++) {
+                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
+            }
+
+            if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
+        }
+    } else
     if (!strcmp(argv[0], "-s") && argc >= 2) {
         ret = RunScript(argv[1]);
     }
