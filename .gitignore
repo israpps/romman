@@ -32,12 +32,16 @@
 *.app
 
 build*/
+CMake*
 ext_*/
 *.bin
 scripts/rebuild/rebuild.romscript
+Makefile
 
 .*
 !.gitignore
 !.gitattributes
 !.github
 !.editorconfig
+!.CMakeLists.txt
+romman
