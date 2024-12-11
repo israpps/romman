@@ -42,8 +42,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: romman-${{ matrix.os }}
-          path: ${{ steps.set_artifact_path.outputs.artifact_path }}
-          retention-days: 7 # Optional: keep artifacts for 7 days
+          path: build/romman*
 
   release:
     needs: build
@@ -73,7 +72,6 @@ jobs:
           mv ${{ github.workspace }}/artifacts/ubuntu/romman release/romman-linux  # Rename for clarity
           mv ${{ github.workspace }}/artifacts/macos/romman release/romman-macos
           mv ${{ github.workspace }}/artifacts/windows/romman.exe release/romman-windows.exe
-
 
       - uses: softprops/action-gh-release@v2
         with:
