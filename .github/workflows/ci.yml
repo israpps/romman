@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
     outputs:
       artifact_path: ${{ steps.set_artifact_path.outputs.artifact_path }}
     steps:
@@ -19,10 +19,6 @@ jobs:
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
-
-      - name: Rename Windows Executable (Windows only)
-        if: matrix.os == 'windows-latest'
-        run: mv ${{ github.workspace }}/build/romman ${{ github.workspace }}/build/romman.exe
 
       - id: set_artifact_path # Set the output variable 'artifact_path'
         name: Set Artifact Path
@@ -39,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/heads/') # Only release on pushes to branches
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: romman-ubuntu
-          path: ${{ github.workspace }}/artifacts/ubuntu
+      # - uses: actions/download-artifact@v4
+      #   with:
+      #     name: romman-ubuntu
+      #     path: ${{ github.workspace }}/artifacts/ubuntu
 
       - uses: actions/download-artifact@v4
         with:
@@ -59,7 +55,7 @@ jobs:
 
       - name: Move Files to Release Directory
         run: |
-          mv ${{ github.workspace }}/artifacts/ubuntu/romman release/romman-linux  # Rename for clarity
+          # mv ${{ github.workspace }}/artifacts/ubuntu/romman release/romman-linux  # Rename for clarity
           mv ${{ github.workspace }}/artifacts/macos/romman release/romman-macos
           mv ${{ github.workspace }}/artifacts/windows/romman.exe release/romman-windows.exe
 
