@@ -154,12 +154,12 @@ int WriteImage(rom* ROM) {
     for (size_t o=0, off=0; o < FFiles.size(); o++)
     {
         if (off >= FFiles[o].offset) {
-            DERROR("FATAL ERROR: Fixed file at position %d collides with %d\n"
+            DERROR("FATAL ERROR: Fixed file at position %lu collides with %lu\n"
                     "File 1: " FFMT "\n"
                     "File 2: " FFMT "\n",
                     o-1, o,
-                    FFiles[o-1].fname.c_str(), FFiles[o-1].fsize, writtenbytes, FFiles[o-1].offset,
-                    FFiles[o].fname.c_str(), FFiles[o].fsize, writtenbytes, FFiles[o].offset
+                    FFiles[o-1].fname.c_str(), FFiles[o-1].fsize, FFiles[o-1].offset,
+                    FFiles[o].fname.c_str(), FFiles[o].fsize, FFiles[o].offset
                     );
             ret = -EIMPOSSIBLE;
         }
@@ -233,8 +233,8 @@ int WriteImage(rom* ROM) {
     }
     if (ret == RET_OK) ROM->write();
     printf("# Size of contents: %ld\n"
-           "# Files written: %u (%lu fixed, %lu normal)\n"
-           "# Space spent in dummy gaps: %d\n"
+           "# Files written: %lu (%lu fixed, %lu normal)\n"
+           "# Space spent in dummy gaps: %ld\n"
            "",
            writtenbytes, rem, FFiles.size(), CFiles.size(),
            Tdeadgap);

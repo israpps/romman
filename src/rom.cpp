@@ -4,6 +4,7 @@
 #include "main.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h> // linux: without this, snprintf always complains of '-Wformat-truncation'
 
 rom::rom() {
 }
@@ -41,7 +42,7 @@ int rom::CreateBlank(std::string path) {
     util::getCWD(cwd, sizeof(cwd));
     comment_len = 31 + strlen(filename.c_str()) + strlen(user ? user : "") + strlen(Localhost) + strlen(cwd);
     rom::comment = (char*)MALLOC(comment_len);
-    snprintf(rom::comment, sizeof(rom::comment), "%08x,conffile,%s,%s@%s/%s",
+    snprintf(rom::comment, comment_len-1, "%08x,conffile,%s,%s@%s/%s",
         rom::date, filename.c_str(),
         user ? user : "",
         Localhost, cwd);
