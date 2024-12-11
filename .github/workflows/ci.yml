@@ -51,17 +51,17 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: romman-ubuntu
+          name: romman-ubuntu-latest
           path: ${{ github.workspace }}/artifacts/ubuntu
 
       - uses: actions/download-artifact@v4
         with:
-          name: romman-macos
+          name: romman-macos-latest
           path: ${{ github.workspace }}/artifacts/macos
 
       - uses: actions/download-artifact@v4
         with:
-          name: romman-windows
+          name: romman-windows-latest
           path: ${{ github.workspace }}/artifacts/windows
 
       - name: Create Release Directory
