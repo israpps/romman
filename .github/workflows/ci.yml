@@ -18,12 +18,15 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake # Or the specific mingw32 packages
-
+          msystem: MINGW32
+          install: |
+            base-devel git make texinfo patch binutils mpc-devel p7zip mingw-w64-i686-gcc
+            mingw-w64-i686-cmake mingw-w64-i686-extra-cmake-modules mingw-w64-i686-make
+          update: true
+          shell: msys2 {0}
+          
       - name: Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
         run: cmake -G "MSYS Makefiles" -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
 
       - name: Configure CMake
@@ -48,10 +51,10 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/heads/') # Only release on pushes to branches
     steps:
-       - uses: actions/download-artifact@v4
-         with:
-           name: romman-ubuntu
-           path: ${{ github.workspace }}/artifacts/ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: romman-ubuntu
+          path: ${{ github.workspace }}/artifacts/ubuntu
 
       - uses: actions/download-artifact@v4
         with:
