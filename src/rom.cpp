@@ -622,7 +622,7 @@ int rom::dumpContents(void) {
     if (util::dirExists(fol)) MKDIR(fol.c_str());
     size_t i;
     for (i = 0; i < files.size(); i++) {
-        if (files[i].RomDir.size > 0) {
+        if (files[i].RomDir.size > 0 && strncmp((char*)files[i].RomDir.name, "-",  sizeof(files[i].RomDir.name)) != 0) {
             std::string dpath = fol + (char*)files[i].RomDir.name;
             FILE* F;
             if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
