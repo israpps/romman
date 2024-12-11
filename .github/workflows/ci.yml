@@ -20,8 +20,8 @@ jobs:
         with:
           msystem: MINGW32
           install: |
-            base-devel git make texinfo patch binutils mpc-devel p7zip mingw-w64-i686-gcc
-            mingw-w64-i686-cmake mingw-w64-i686-extra-cmake-modules mingw-w64-i686-make
+            base-devel git make cmake texinfo patch binutils mpc-devel p7zip mingw-w64-i686-gcc
+            mingw-w64-i686-cmake mingw-w64-i686-make
           update: true
           
       - name: Configure CMake (Windows)
