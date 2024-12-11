@@ -39,11 +39,11 @@ int rom::CreateBlank(std::string path) {
     if (user == NULL) user = altuser;
     util::GetLocalhostName(Localhost, sizeof(Localhost));
     util::getCWD(cwd, sizeof(cwd));
-    comment_len = 31 + strlen(filename.c_str()) + strlen(user) + strlen(Localhost) + strlen(cwd);
+    comment_len = 31 + strlen(filename.c_str()) + strlen(user ? user : "") + strlen(Localhost) + strlen(cwd);
     rom::comment = (char*)MALLOC(comment_len);
     snprintf(rom::comment, sizeof(rom::comment), "%08x,conffile,%s,%s@%s/%s",
         rom::date, filename.c_str(),
-        (user == NULL) ? "" : user,
+        user ? user : "",
         Localhost, cwd);
 
     rom::FileEntry ResetFile;
@@ -136,7 +136,7 @@ err:
 
 int32_t rom::findFSBegin() {
     image.fstart = -ENOENT;
-    int result = -EIO;
+    // int result = -EIO;
     uint32_t ScanLimit = BOOTSTRAP_MAX_SIZE < image.size ? BOOTSTRAP_MAX_SIZE : image.size;
     for (int32_t i = 0; i < ScanLimit; i++) {
         if (((const char *)image.data)[i] == 'R' &&
@@ -194,6 +194,7 @@ int rom::GetExtInfoOffset(filefd *fd)
     while (E->name[0] != '\0') {
         if (strncmp("EXTINFO", (const char*)E->name, sizeof(E->name)) == 0) {
             fd->ExtInfoOffset = offset;
+            image.fstart2 = offset + (E->size + 0xF) & ~0xF;
             result = RET_OK;
             break;
         }
@@ -208,7 +209,7 @@ int rom::GetExtInfoOffset(filefd *fd)
 int rom::GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes)
 {
     int ret = -ENOENT;
-    unsigned int offset = 0, BytesToCopy = 0;
+    unsigned int offset = 0, BytesToCopy;
 
     while (offset < fd->ExtInfoEntrySize) {
         ExtInfoFieldEntry *E = (ExtInfoFieldEntry *)(image.data + fd->ExtInfoOffset);
@@ -268,7 +269,7 @@ int rom::GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes
 int rom::CheckExtInfoStat(filefd *fd, uint8_t type)
 {
     int ret = -ENOENT;
-    unsigned int offset = 0, BytesToCopy = 0;
+    unsigned int offset = 0;
 
     while (offset < fd->ExtInfoEntrySize) {
         ExtInfoFieldEntry *E = (ExtInfoFieldEntry *)(image.data + fd->ExtInfoOffset);
@@ -307,7 +308,7 @@ int rom::CheckExtInfoStat(filefd *fd, uint8_t type)
 int rom::addFile(std::string path, bool isFixed)
 {
     //DPRINTF("%s(%s) %d cnt\n", __FUNCTION__, path.c_str(), files.size());
-    size_t x;
+    // size_t x;
     FILE *F;
     int result = RET_OK;
     uint32_t FileDateStamp;
@@ -353,7 +354,7 @@ int rom::addFile(std::string path, bool isFixed)
                 DERROR("# ERROR: requested file exceeds max size for bootstrap program\n"
                 "\tMax size: 0x%x\n\tFile size %x\n",
                 BOOTSTRAP_MAX_SIZE, size);
-                return -EFBIG;
+                result = -EFBIG;
             } else if (files[0].RomDir.size < 1) {
                 files[0].RomDir.size = size;
                 files[0].FileData = MALLOC(size);
@@ -489,14 +490,14 @@ int rom::displayContents()
 
     printf(
         "# File list: (%zu)\n"
-        "#Props Name      \tSize   \tOffset\n"
-        "#------------------------------------------\n", files.size());
+        "#Props Name                 Size          Offset\n"
+        "#-----------------------------------------------\n", files.size());
 
 
     /**
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
      */
-    for (size_t i = 0; i < files.size(); TotalSize += (i != 0) ? files[i].RomDir.size : 0, i++) {
+    for (size_t i = 0; i < files.size(); TotalSize += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF, i++) {
         int a=0;
         strncpy(filename, (const char*)files[i].RomDir.name, sizeof(filename) - 1);
         filename[sizeof(filename) - 1] = '\0';
@@ -555,10 +556,10 @@ int rom::displayContents()
             (hc) ? 'c' : '-'
         );
         printf("%s", (!any) ? DGREY : (hf) ? YELBOLD : GREEN);
-        printf("%-10s%s\t%-7d\t%d\n", filename, DEFCOL, files[i].RomDir.size, TotalSize);
+        printf("%-10s%s\t%8d\t%8u\n", filename, DEFCOL, files[i].RomDir.size, TotalSize);
     }
 
-    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize+files[0].RomDir.size, files.size());
+    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, files.size());
     return ret;
 }
 
@@ -573,6 +574,8 @@ int rom::dumpContents(std::string file) {
                     if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
                         DERROR("# Error writing to file %s\n", file.c_str());
                         ret = -EIO;
+                        fclose(F);
+                        break;
                     }
                     fclose(F);
                     ret = RET_OK;

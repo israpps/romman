@@ -34,6 +34,7 @@ private:
         uint8_t *data = nullptr; // pointer to readed file. freed on destructor
         long size = 0x0; //size of image allocated in ram
         int32_t fstart = 0x0; // where the filesystem begins
+        int32_t fstart2 = 0x0; // where the EXTINFO ends
         uint8_t *fstart_ptr = nullptr; //an actual pointer to fs start. so we can imagine the bootstrap doesnt exist
     }image;
     void ResetImageData();
