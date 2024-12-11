@@ -212,7 +212,7 @@ int rom::GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes
     unsigned int offset = 0, BytesToCopy;
 
     while (offset < fd->ExtInfoEntrySize) {
-        ExtInfoFieldEntry *E = (ExtInfoFieldEntry *)(image.data + fd->ExtInfoOffset);
+        ExtInfoFieldEntry *E = (ExtInfoFieldEntry *)(image.data + fd->ExtInfoOffset + offset);
 
         if (E->type == EXTINFO_FIELD_TYPE_DATE || E->type == EXTINFO_FIELD_TYPE_COMMENT) {
             if (type == E->type) {
@@ -490,8 +490,8 @@ int rom::displayContents()
 
     printf(
         "# File list: (%zu)\n"
-        "#Props Name                 Size          Offset\n"
-        "#-----------------------------------------------\n", files.size());
+        "#Props Name              Size      Offset        Date Version Comment\n"
+        "#--------------------------------------------------------------------\n", files.size());
 
 
     /**
@@ -507,7 +507,13 @@ int rom::displayContents()
             hv = false,
             hc = false,
             hf = false;
-            int any = false;
+        int any = false;
+        void* pdate = nullptr;
+        filefd FD;
+        openFile(filename, &FD);
+        char* currentComment = nullptr;
+        date_helper dh = {0};
+        uint16_t version = 0;
         for (int z = 0; z < x;)
         {
             switch (((ExtInfoFieldEntry*)S)->type)
@@ -516,17 +522,22 @@ int rom::displayContents()
                 a = ((ExtInfoFieldEntry*)S)->ExtLength + sizeof(ExtInfoFieldEntry);
                 z += a;
                 S += a;
+                pdate = &date;
+                GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date));
+                dh = *(date_helper*)pdate;
                 any = hd = true;
                 break;
             case EXTINFO_FIELD_TYPE_VERSION:
                 z += sizeof(ExtInfoFieldEntry);
                 S += sizeof(ExtInfoFieldEntry);
+                GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void**)&version, sizeof(uint16_t));
                 any = hv = true;
                 break;
             case EXTINFO_FIELD_TYPE_COMMENT:
-                a = ((ExtInfoFieldEntry*)S)->ExtLength + sizeof(ExtInfoFieldEntry);
+                a = ((ExtInfoFieldEntry *)S)->ExtLength + sizeof(ExtInfoFieldEntry);
                 z += a;
                 S += a;
+                GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**)&currentComment, 0);
                 any = hc = true;
                 break;
             case EXTINFO_FIELD_TYPE_FIXED:
@@ -556,7 +567,20 @@ int rom::displayContents()
             (hc) ? 'c' : '-'
         );
         printf("%s", (!any) ? DGREY : (hf) ? YELBOLD : GREEN);
-        printf("%-10s%s\t%8d\t%8u\n", filename, DEFCOL, files[i].RomDir.size, TotalSize);
+        printf("%-10s%s    %8d    %s%8u%s", filename, DEFCOL, files[i].RomDir.size, (hf) ? YELBOLD : DEFCOL ,TotalSize, DEFCOL);
+        if (hd)
+            printf("  %04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
+        else
+            printf("            ");
+        if (hv)
+            printf("  0x%04x", version);
+        else
+            printf("        ");
+        if (hc){
+            printf("  %s", currentComment);
+            FREE(currentComment);
+        }
+        printf("\n");
     }
 
     printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, files.size());
