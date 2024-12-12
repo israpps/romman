@@ -334,7 +334,7 @@ int help() {
     "\t-a <image> <files...>\n"
     "\t\tAdd file(s) to existing image\n"
 
-    "\t-s <file>"
+    "\t-s <file>\n"
     "\t\t Run a romman script\n"
     "\t\t more info about script language at " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n"
     );
