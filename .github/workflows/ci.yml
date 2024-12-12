@@ -26,7 +26,7 @@ jobs:
           
       - name: Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
-        run: cmake -G "MSYS Makefiles" -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+        run: cmake -G "MinGW Makefiles" -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"
 
       - name: Configure CMake
         if: matrix.os != 'windows-latest'
@@ -44,39 +44,39 @@ jobs:
           name: romman-${{ matrix.os }}
           path: build/romman*
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/') # Only release on pushes to branches
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: romman-ubuntu-latest
-          path: ${{ github.workspace }}/artifacts/ubuntu
+  # release:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: startsWith(github.ref, 'refs/heads/') # Only release on pushes to branches
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: romman-ubuntu-latest
+  #         path: ${{ github.workspace }}/artifacts/ubuntu
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: romman-macos-latest
-          path: ${{ github.workspace }}/artifacts/macos
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: romman-macos-latest
+  #         path: ${{ github.workspace }}/artifacts/macos
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: romman-windows-latest
-          path: ${{ github.workspace }}/artifacts/windows
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: romman-windows-latest
+  #         path: ${{ github.workspace }}/artifacts/windows
 
-      - name: Create Release Directory
-        run: mkdir release
+  #     - name: Create Release Directory
+  #       run: mkdir release
 
-      - name: Move Files to Release Directory
-        run: |
-          mv ${{ github.workspace }}/artifacts/ubuntu/romman release/romman-linux  # Rename for clarity
-          mv ${{ github.workspace }}/artifacts/macos/romman release/romman-macos
-          mv ${{ github.workspace }}/artifacts/windows/romman.exe release/romman-windows.exe
+  #     - name: Move Files to Release Directory
+  #       run: |
+  #         mv ${{ github.workspace }}/artifacts/ubuntu/romman release/romman-linux  # Rename for clarity
+  #         mv ${{ github.workspace }}/artifacts/macos/romman release/romman-macos
+  #         mv ${{ github.workspace }}/artifacts/windows/romman.exe release/romman-windows.exe
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: release/*  # Release all files in the release directory
-          prerelease: true
-          tag_name: develop-${{ github.run_number }}
-          name: Development Release ${{ github.run_number }}
-          body: Development release triggered by push to develop branch.
+  #     - uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: release/*  # Release all files in the release directory
+  #         prerelease: true
+  #         tag_name: develop-${{ github.run_number }}
+  #         name: Development Release ${{ github.run_number }}
+  #         body: Development release triggered by push to develop branch.
