@@ -8,26 +8,29 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: ubuntu-latest
+            targetos: windows
+          - os: macos-latest
+            targetos: macos
+          - os: ubuntu-latest
+            targetos: linux
     outputs:
       artifact_path: ${{ steps.set_artifact_path.outputs.artifact_path }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MSYS2 (Windows only)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake # Or the specific mingw32 packages
+      - name: windows compiler
+        if: matrix.targetos == 'windows'
+        run: |
+          apk add mingw-w64
 
       - name: Configure CMake (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
-        run: cmake -G "MSYS Makefiles" -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
+        if: matrix.targetos == 'windows'
+        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=mingw-w64-x86_64.cmake
 
       - name: Configure CMake
-        if: matrix.os != 'windows-latest'
+        if: matrix.targetos != 'windows'
         run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
@@ -35,11 +38,11 @@ jobs:
 
       - id: set_artifact_path # Set the output variable 'artifact_path'
         name: Set Artifact Path
-        run: echo "artifact_path=${{ github.workspace }}/build/romman${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_OUTPUT
+        run: echo "artifact_path=${{ github.workspace }}/build/romman${{ matrix.targetos == 'windows' && '.exe' || '' }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
-          name: romman-${{ matrix.os }}
+          name: romman-${{ matrix.targetos }}
           path: ${{ steps.set_artifact_path.outputs.artifact_path }}
           retention-days: 7 # Optional: keep artifacts for 7 days
 
