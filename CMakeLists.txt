@@ -9,3 +9,5 @@ add_executable(romman
   src/rom.cpp
   src/utils.cpp
 )
+
+target_link_libraries(romman -static -static-libgcc -static-libstdc++)
