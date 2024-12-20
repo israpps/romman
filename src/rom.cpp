@@ -157,7 +157,6 @@ int32_t rom::findFSBegin() {
 }
 
 int rom::openFile(std::string file, filefd* FD) {
-    //DPRINTF("Opening '%s'\n", file.c_str());
     rom::DirEntry *E;
     memset(FD, 0, sizeof(filefd));
     int result;
@@ -233,23 +232,24 @@ int rom::GetExtInfoStat(filefd *fd, uint8_t type, void **buffer, uint32_t nbytes
                 memcpy(*buffer, &((const unsigned char *)image.data)[fd->ExtInfoOffset + offset + sizeof(ExtInfoFieldEntry)], BytesToCopy);
                 break;
             }
-
             offset += (sizeof(ExtInfoFieldEntry) + E->ExtLength);
         } else if (E->type == EXTINFO_FIELD_TYPE_VERSION) {
             if (type == E->type) {
                 if (nbytes >= sizeof(E->value)) {
-                    ret = RET_OK;
                     memcpy(buffer, &E->value, sizeof(E->value));
-                    break;
+                    ret = RET_OK;
                 } else {
                     ret = -ENOMEM;
-                    break;
                 }
+                break;
             }
-
             offset += sizeof(struct ExtInfoFieldEntry);
         } else if (E->type == EXTINFO_FIELD_TYPE_FIXED) {
             if (type == E->type) {
+                // TODO: implement offset return
+                // printf("offset: %u\n", offset);
+                // memcpy(*buffer, &offset, sizeof(offset));
+                buffer = NULL;
                 ret = RET_OK;
                 break;
             }
@@ -614,31 +614,83 @@ int rom::dumpContents(std::string file) {
     return ret;
 }
 
-int rom::dumpContents(void) {
+int rom::dumpContents(void)
+{
     int ret = RET_OK;
     util::genericgaugepercent(0, "RESET");
-    std::string imgn = util::Basename(rom::img_filepath); //base name of the image for building subdir dumppath
+    std::string imgn = util::Basename(rom::img_filepath); // base name of the image for building subdir dumppath
     std::string fol = "./ext_" + imgn + PATHSEPS;
+    std::string conf = imgn + ".conf";
+    FILE *Fconf;
+    char *currentComment = nullptr;
+    if ((Fconf = fopen(conf.c_str(), "wb")) == NULL) {
+        DERROR("\nCan't create file: %s\n", conf.c_str());
+        return -EIO;
+    }
 
-    if (util::dirExists(fol)) MKDIR(fol.c_str());
+    if (util::dirExists(fol))
+        MKDIR(fol.c_str());
     size_t i;
+    size_t currentOffset = 0; // Initialize the offset counter
     for (i = 0; i < files.size(); i++) {
-        if (files[i].RomDir.size > 0 && strncmp((char*)files[i].RomDir.name, "-",  sizeof(files[i].RomDir.name)) != 0) {
-            std::string dpath = fol + (char*)files[i].RomDir.name;
-            FILE* F;
+        if (files[i].RomDir.size > 0 && 1) {
+            std::string dpath = fol + (char *)files[i].RomDir.name;
+            FILE *F;
             if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                    DERROR("\nError writing to file %s\n", dpath.c_str());
+                if (strncmp((char *)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) != 0) {
+                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                        DERROR("\nError writing to file %s\n", dpath.c_str());
+                    }
+                    fclose(F);
+
+                    void *pdate = malloc(sizeof(rom::date));
+                    filefd FD;
+                    char filename[11];
+                    strncpy(filename, (const char *)files[i].RomDir.name, sizeof(filename) - 1);
+                    filename[sizeof(filename) - 1] = '\0';
+                    openFile(filename, &FD);
+                    fprintf(Fconf, "%s,", files[i].RomDir.name);
+                    uint16_t temp;
+                    // fprintf(Fconf, "0x%06x  ", currentOffset);
+                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void **)&temp, sizeof(uint16_t)) >= 0) {
+                         fprintf(Fconf, "%zu", currentOffset);
+                    }
+
+                    fprintf(Fconf, ",");
+                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
+                        date_helper dh = {0};
+                        dh = *(date_helper *)pdate;
+                        fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
+                    }
+
+                    fprintf(Fconf, ",");
+                    uint16_t version;
+                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void **)&version, sizeof(uint16_t)) >= 0)
+                        fprintf(Fconf, "0x%04x", version);
+
+                    fprintf(Fconf, ",");
+                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void **)&currentComment, 0) >= 0) {
+                        fprintf(Fconf, "%s", currentComment);
+                        FREE(currentComment);
+                    }
+                    fprintf(Fconf, "\n");
+                } else {
+                    fclose(F);
                 }
-                fclose(F);
+                // Update the current offset
+                currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
             } else {
                 ret = -EIO;
                 DERROR("\nCan't create file: %s\n", dpath.c_str());
+                fclose(Fconf);
                 break;
             }
-        util::genericgaugepercent(((i+1)*100)/(float)files.size(), (char*)files[i].RomDir.name);
-        } else {DWARN("\nentry '%s' is 0 byte sized? skipping\n", (char*)files[i].RomDir.name);}
+            util::genericgaugepercent(((i + 1) * 100) / (float)files.size(), (char *)files[i].RomDir.name);
+        } else {
+            DWARN("\nentry '%s' is 0 byte sized? skipping\n", (char *)files[i].RomDir.name);
+        }
     }
+    fclose(Fconf);
     printf("\n");
     return ret;
 }

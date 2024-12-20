@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <string>
+#include <string.h>
 #include <errno.h>
 #include <vector>
 #include "romman-errno.h"
