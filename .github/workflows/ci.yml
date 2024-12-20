@@ -8,38 +8,40 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
+        target: [linux, windows]
     outputs:
       artifact_path: ${{ steps.set_artifact_path.outputs.artifact_path }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MSYS2 (Windows only)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake # Or the specific mingw32 packages
+      - name: Install MinGW-W64 (Linux only)
+        if: matrix.os == 'ubuntu-latest' && matrix.target == 'windows'
+        run: sudo apt-get update && sudo apt-get install -y gcc g++ cmake mingw-w64
 
-      - name: Configure CMake (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
-        run: cmake -G "MSYS Makefiles" -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure CMake (Linux Cross-Compile for Windows)
+        if: matrix.os == 'ubuntu-latest' && matrix.target == 'windows'
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/mingw-w64-x86_64.cmake
 
       - name: Configure CMake
-        if: matrix.os != 'windows-latest'
-        run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
+        if: matrix.os != 'ubuntu-latest' || matrix.target != 'windows'
+        run: |
+          cmake -B ${{ github.workspace }}/build \
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build --config Release
 
       - id: set_artifact_path # Set the output variable 'artifact_path'
         name: Set Artifact Path
-        run: echo "artifact_path=${{ github.workspace }}/build/romman${{ matrix.os == 'windows-latest' && '.exe' || '' }}" >> $GITHUB_OUTPUT
+        run: echo "artifact_path=${{ github.workspace }}/build/romman${{ matrix.target == 'windows' && '.exe' || '' }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
-          name: romman-${{ matrix.os }}
+          name: romman-${{ matrix.os }}-${{ matrix.target }}
           path: ${{ steps.set_artifact_path.outputs.artifact_path }}
           retention-days: 7 # Optional: keep artifacts for 7 days
 
@@ -48,10 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/heads/') # Only release on pushes to branches
     steps:
-       - uses: actions/download-artifact@v4
-         with:
-           name: romman-ubuntu
-           path: ${{ github.workspace }}/artifacts/ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: romman-ubuntu
+          path: ${{ github.workspace }}/artifacts/ubuntu
 
       - uses: actions/download-artifact@v4
         with:
@@ -72,10 +74,9 @@ jobs:
           mv ${{ github.workspace }}/artifacts/macos/romman release/romman-macos
           mv ${{ github.workspace }}/artifacts/windows/romman.exe release/romman-windows.exe
 
-
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/*  # Release all files in the release directory
+          files: release/* # Release all files in the release directory
           prerelease: true
           tag_name: develop-${{ github.run_number }}
           name: Development Release ${{ github.run_number }}
