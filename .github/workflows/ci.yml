@@ -9,7 +9,10 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest]
-        target: [linux, windows]
+        target: [unix, windows]
+        exclude:
+          - os: macos-latest
+            target: windows
     outputs:
       artifact_path: ${{ steps.set_artifact_path.outputs.artifact_path }}
     steps:
@@ -52,17 +55,17 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: romman-ubuntu
+          name: romman-ubuntu-latest-unix
           path: ${{ github.workspace }}/artifacts/ubuntu
 
       - uses: actions/download-artifact@v4
         with:
-          name: romman-macos
+          name: romman-macos-latest-unix
           path: ${{ github.workspace }}/artifacts/macos
 
       - uses: actions/download-artifact@v4
         with:
-          name: romman-windows
+          name: romman-ubuntu-latest-windows
           path: ${{ github.workspace }}/artifacts/windows
 
       - name: Create Release Directory
