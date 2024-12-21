@@ -44,4 +44,5 @@ Makefile
 !.github
 !.editorconfig
 !.CMakeLists.txt
+!.clang-format
 romman
