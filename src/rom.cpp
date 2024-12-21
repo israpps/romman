@@ -614,15 +614,17 @@ int rom::dumpContents(std::string file) {
     return ret;
 }
 
-int rom::dumpContents(void)
-{
+int rom::dumpContents(void) {
     int ret = RET_OK;
     util::genericgaugepercent(0, "RESET");
-    std::string imgn = util::Basename(rom::img_filepath); // base name of the image for building subdir dumppath
+    std::string imgn = util::Basename(rom::img_filepath);  // base name of the image for building subdir dumppath
     std::string fol = "./ext_" + imgn + PATHSEPS;
     std::string conf = imgn + ".conf";
-    FILE *Fconf;
-    char *currentComment = nullptr;
+    FILE* Fconf;
+    char* currentComment = nullptr;
+    int i;
+    size_t currentOffset = 0;  // Initialize the offset counter
+    std::string romDirName;
     if ((Fconf = fopen(conf.c_str(), "wb")) == NULL) {
         DERROR("\nCan't create file: %s\n", conf.c_str());
         return -EIO;
@@ -630,64 +632,71 @@ int rom::dumpContents(void)
 
     if (util::dirExists(fol))
         MKDIR(fol.c_str());
-    size_t i;
-    size_t currentOffset = 0; // Initialize the offset counter
-    for (i = 0; i < files.size(); i++) {
-        if (files[i].RomDir.size > 0 && 1) {
-            std::string dpath = fol + (char *)files[i].RomDir.name;
-            FILE *F;
-            if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                if (strncmp((char *)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) != 0) {
-                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                        DERROR("\nError writing to file %s\n", dpath.c_str());
-                    }
-                    fclose(F);
 
-                    void *pdate = malloc(sizeof(rom::date));
-                    filefd FD;
-                    char filename[11];
-                    strncpy(filename, (const char *)files[i].RomDir.name, sizeof(filename) - 1);
-                    filename[sizeof(filename) - 1] = '\0';
-                    openFile(filename, &FD);
-                    fprintf(Fconf, "%s,", files[i].RomDir.name);
-                    uint16_t temp;
-                    // fprintf(Fconf, "0x%06x  ", currentOffset);
-                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void **)&temp, sizeof(uint16_t)) >= 0) {
-                         fprintf(Fconf, "%zu", currentOffset);
-                    }
+    for (i = -1; i == -1 || i < files.size(); i++) {
+        romDirName = (i == -1) ? "ROMDIR" : (char*) files[i].RomDir.name;
+        if (romDirName != "-") {
+            void* pdate = malloc(sizeof(rom::date));
+            filefd FD;
+            char filename[11];
+            strncpy(filename, romDirName.c_str(), sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+            openFile(filename, &FD);
 
-                    fprintf(Fconf, ",");
-                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
-                        date_helper dh = {0};
-                        dh = *(date_helper *)pdate;
-                        fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
-                    }
-
-                    fprintf(Fconf, ",");
-                    uint16_t version;
-                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void **)&version, sizeof(uint16_t)) >= 0)
-                        fprintf(Fconf, "0x%04x", version);
-
-                    fprintf(Fconf, ",");
-                    if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void **)&currentComment, 0) >= 0) {
-                        fprintf(Fconf, "%s", currentComment);
-                        FREE(currentComment);
-                    }
-                    fprintf(Fconf, "\n");
-                } else {
-                    fclose(F);
-                }
-                // Update the current offset
-                currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
-            } else {
-                ret = -EIO;
-                DERROR("\nCan't create file: %s\n", dpath.c_str());
-                fclose(Fconf);
-                break;
+            fprintf(Fconf, "%s,", romDirName.c_str());
+            uint16_t temp;
+            // fprintf(Fconf, "0x%06x  ", currentOffset);
+            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void**) &temp, sizeof(uint16_t)) >= 0) {
+                fprintf(Fconf, "%zu", currentOffset);
             }
-            util::genericgaugepercent(((i + 1) * 100) / (float)files.size(), (char *)files[i].RomDir.name);
-        } else {
-            DWARN("\nentry '%s' is 0 byte sized? skipping\n", (char *)files[i].RomDir.name);
+
+            fprintf(Fconf, ",");
+            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
+                date_helper dh = {0};
+                dh = *(date_helper*) pdate;
+                fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
+            } else {
+                fprintf(Fconf, "-");
+            }
+
+            fprintf(Fconf, ",");
+            uint16_t version;
+            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void**) &version, sizeof(uint16_t)) >= 0)
+                fprintf(Fconf, "0x%04x", version);
+
+            fprintf(Fconf, ",");
+            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**) &currentComment, 0) >= 0) {
+                fprintf(Fconf, "%s", currentComment);
+                FREE(currentComment);
+            }
+            fprintf(Fconf, "\n");
+            if (i >= 0) {
+                if (files[i].RomDir.size > 0) {
+                    std::string dpath = fol + romDirName;
+                    FILE* F;
+                    if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
+                        if (romDirName != "-") {
+                            if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                                DERROR("\nError writing to file %s\n", dpath.c_str());
+                            }
+                            fclose(F);
+
+                        } else {
+                            fclose(F);
+                        }
+                        // Update the current offset
+                        currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
+                    } else {
+                        ret = -EIO;
+                        DERROR("\nCan't create file: %s\n", dpath.c_str());
+                        fclose(Fconf);
+                        break;
+                    }
+                } else {
+                    DWARN("\nentry '%s' is 0 byte sized? skipping\n", romDirName.c_str());
+                }
+            }
+            util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
         }
     }
     fclose(Fconf);
