@@ -495,16 +495,18 @@ int rom::displayContents()
     printf("# has bootstrap: %s\n", (rom::image.fstart == 0) ? "No" : GRNBOLD "Yes" DEFCOL);
 
     printf(
-        "# File list: (%zu)\n"
         "#Props Name              Size      Offset        Date Version Comment\n"
-        "#--------------------------------------------------------------------\n", files.size());
-
+        "#--------------------------------------------------------------------\n");
+    unsigned int count = 0;
 
     /**
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
      */
     for (size_t i = 0; i < files.size(); TotalSize += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF, i++) {
-        int a=0;
+        if (strncmp((const char*)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) == 0)
+            continue;
+        count++;
+        int a = 0;
         strncpy(filename, (const char*)files[i].RomDir.name, sizeof(filename) - 1);
         filename[sizeof(filename) - 1] = '\0';
         uint8_t* S = files[i].ExtInfoData;
@@ -589,7 +591,7 @@ int rom::displayContents()
         printf("\n");
     }
 
-    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, files.size());
+    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, count);
     return ret;
 }
 
