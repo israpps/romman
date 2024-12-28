@@ -681,31 +681,27 @@ int rom::dumpContents(void) {
         }
 
         if (i >= 0) {
-            if (files[i].RomDir.size > 0) {
-                currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
-                if (romDirName != "-") {
-                    std::string dpath = fol + romDirName;
-                    FILE* F;
-                    if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                        if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                            DERROR("\nError writing to file %s\n", dpath.c_str());
-                        }
-                        fclose(F);
-
-                        if (dh.fdate != 0) {
-                            uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
-                            util::SetFileModificationDate(dpath.c_str(), date);
-                        }
-                        // Update the current offset
-                    } else {
-                        ret = -EIO;
-                        DERROR("\nCan't create file: %s\n", dpath.c_str());
-                        fclose(Fconf);
-                        break;
+            currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
+            if (romDirName != "-") {
+                std::string dpath = fol + romDirName;
+                FILE* F;
+                if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
+                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                        DERROR("\nError writing to file %s\n", dpath.c_str());
                     }
+                    fclose(F);
+
+                    if (dh.fdate != 0) {
+                        uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
+                        util::SetFileModificationDate(dpath.c_str(), date);
+                    }
+                    // Update the current offset
+                } else {
+                    ret = -EIO;
+                    DERROR("\nCan't create file: %s\n", dpath.c_str());
+                    fclose(Fconf);
+                    break;
                 }
-            } else {
-                DWARN("\nentry '%s' is 0 byte sized? skipping\n", romDirName.c_str());
             }
         }
         util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
