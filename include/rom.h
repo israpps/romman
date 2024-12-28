@@ -28,7 +28,6 @@ private:
             uint16_t yrs;
         }sdate;
     };
-    char *comment = nullptr;
 
     struct _image {
         uint8_t *data = nullptr; // pointer to readed file. freed on destructor
@@ -40,6 +39,7 @@ private:
     void ResetImageData();
 
 public: //constants
+    char *comment = nullptr;
     enum ExtInfoFieldTypes {
         EXTINFO_FIELD_TYPE_DATE = 1,
         EXTINFO_FIELD_TYPE_VERSION,
@@ -76,7 +76,7 @@ public:
      * @return `RET_OK` or negative number (errno)
      */
     int openFile(std::string file, filefd* FD);
-    int addFile(std::string path, bool isFixed = false);
+    int addFile(std::string path, bool isFixed = false, bool isDate = true, uint16_t version = 0);
     /**
      * @brief Inserts a dummy file filled with 0's to the filesystem
      * @param name name of the dummy file. sony always used `-`

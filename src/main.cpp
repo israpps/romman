@@ -1,6 +1,8 @@
 #include <string.h>
-#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <regex>
 #include "version.h"
@@ -16,6 +18,147 @@ uint32_t Gflags = 0x0;
 int submain(int argc, char** argv);
 int RunScript(std::string script);
 int help();
+
+struct ConfFileEntry {
+    std::string name;
+    uint32_t offset;
+    bool isFixed;
+    std::string date;
+    std::string version;
+    std::string comment;
+};
+
+std::vector<ConfFileEntry> parseConfFile(const std::string& confFilePath) {
+    std::vector<ConfFileEntry> entries;
+    std::ifstream confFile(confFilePath);
+    std::string line;
+
+    while (std::getline(confFile, line)) {
+        if (line.empty() || line[0] == '#')
+            continue;  // Skip empty lines and comments
+
+        std::istringstream ss(line);
+        std::string name, offsetStr, date, version, comment;
+        uint32_t offset = 0;
+        bool isFixed = false;
+
+        std::getline(ss, name, ',');
+        std::getline(ss, offsetStr, ',');
+        std::getline(ss, date, ',');
+        std::getline(ss, version, ',');
+        std::getline(ss, comment, ',');
+        if (name == "ROMDIR")
+            continue;
+
+        if (!offsetStr.empty() && offsetStr != "-") {
+            offset = std::stoul(offsetStr);
+            // DPRINTF("offset: %u\n\n\n", offset);
+            isFixed = true;
+        }
+
+        entries.push_back({name, offset, isFixed, date, version, comment});
+        // DPRINTF("name: %s, offset: %u, isFixed: %d, date: %s, version: %s, comment: %s\n", name.c_str(), offset, isFixed, date.c_str(), version.c_str(), comment.c_str());
+    }
+
+    return entries;
+}
+
+int generateRomFromConf(const std::string& confFilePath, const std::string& romFilePath, const std::string& folderPath) {
+    rom ROMIMG;
+    int ret = ROMIMG.CreateBlank(romFilePath);
+    if (ret != RET_OK)
+        return ret;
+
+    auto entries = parseConfFile(confFilePath);
+    // DPRINTF("entries.size(): %lu\n", entries.size());
+    unsigned int RomdirSize = (entries.size() + 2) * sizeof(rom::DirEntry);
+
+    unsigned int TotalExtInfoSize = 0;
+    // DPRINTF("rom comment: %s\n", ROMIMG.comment);
+    unsigned int CommentLengthRounded = (strlen(ROMIMG.comment) + 1 + 3) & ~3;
+    // DPRINTF("rom comment length rounded: %u\n", CommentLengthRounded);
+    TotalExtInfoSize = sizeof(rom::ExtInfoFieldEntry) + CommentLengthRounded;  // extinfo for ROMDIR
+    FILE* F;
+    for (const auto& entry : entries) {
+        std::string filePath = folderPath + "/" + entry.name;
+        if ((F = fopen(filePath.c_str(), "rb")) != NULL) {
+            fclose(F);
+            if (util::IsSonyRXModule(filePath)) {
+                char ModuleDescription[32] = {0};
+                uint16_t FileVersion;
+                if ((ret = util::GetSonyRXModInfo(filePath, ModuleDescription, sizeof(ModuleDescription), &FileVersion)) == RET_OK) {
+                    if (strlen(ModuleDescription) > 0)
+                        TotalExtInfoSize += sizeof(rom::ExtInfoFieldEntry) + (strlen(ModuleDescription) + 1 + 3) & ~3;
+                    if (FileVersion > 0)
+                        TotalExtInfoSize += sizeof(rom::ExtInfoFieldEntry);
+                }
+            } else if (!entry.version.empty())
+                TotalExtInfoSize += sizeof(rom::ExtInfoFieldEntry);
+
+            if (entry.isFixed) {
+                TotalExtInfoSize += sizeof(rom::ExtInfoFieldEntry);
+                RomdirSize += sizeof(rom::DirEntry);
+            }
+            if (entry.date != "-")
+                TotalExtInfoSize += sizeof(rom::ExtInfoFieldEntry) + sizeof(uint32_t);
+        } else {
+            DERROR("Could not open file %s\n", filePath.c_str());
+            return -ENOENT;
+        }
+    }
+    TotalExtInfoSize = (TotalExtInfoSize + 0xF) & ~0xF;  // Align
+    // DPRINTF("RomdirSize: %u, TotalExtInfoSize: %u\n", RomdirSize, TotalExtInfoSize);
+    unsigned int currentOffset = 0;
+    for (const auto& entry : entries) {
+        std::string filePath = folderPath + "/" + entry.name;
+        if ((F = fopen(filePath.c_str(), "rb")) == NULL) {
+            DERROR("Could not open file %s\n", filePath.c_str());
+            return -ENOENT;
+        }
+        fseek(F, 0, SEEK_END);
+        uint32_t FileSize = ftell(F);
+        fclose(F);
+
+        bool isDate = entry.date != "-";
+        uint16_t version = 0;
+        if (!entry.version.empty())
+            version = std::stoul(entry.version, nullptr, 16);
+
+        if (strcmp(entry.name.c_str(), "RESET") == 0) {
+            ret = ROMIMG.addFile(filePath, true, isDate, version);
+            if (ret != RET_OK)
+                break;
+            currentOffset += (FileSize + 0xF) & ~0xF;
+            currentOffset += RomdirSize + TotalExtInfoSize;
+        } else if (entry.isFixed) {
+            if (currentOffset <= entry.offset) {
+                // DPRINTF("entry.name: %s, currentOffset: %u, entry.offset: %u\n", entry.name.c_str(), currentOffset, entry.offset);
+                ret = ROMIMG.addDummy("-", entry.offset - currentOffset);
+                if (ret != RET_OK)
+                    break;
+                currentOffset = entry.offset;
+                ret = ROMIMG.addFile(filePath, true, isDate, version);
+                if (ret != RET_OK)
+                    break;
+                currentOffset += (FileSize + 0xF) & ~0xF;
+            } else {
+                DERROR("Invalid offset for file %s\n", entry.name.c_str());
+                DERROR("currentOffset: %u, entry.offset: %u\n", currentOffset, entry.offset);
+                ret = -EINVAL;
+                break;
+            }
+        } else {
+            ret = ROMIMG.addFile(filePath, false, isDate, version);
+            if (ret != RET_OK)
+                break;
+            currentOffset += (FileSize + 0xF) & ~0xF;
+        }
+    }
+
+    if (ret == RET_OK)
+        ret = ROMIMG.write(romFilePath);
+    return ret;
+}
 
 int main (int argc, char** argv) {
     int ret = RET_OK;
@@ -34,6 +177,7 @@ int main (int argc, char** argv) {
             else if (!strcmp(argv[c], "--verbose") && VERB()) Gflags |= VERBOSE; // silent has priority
             //program operations
             else if (!strcmp(argv[c], "-c")) opbegin = c;
+            else if (!strcmp(argv[c], "-g")) opbegin = c;
             else if (!strcmp(argv[c], "-d")) opbegin = c;
             else if (!strcmp(argv[c], "-x")) opbegin = c;
             else if (!strcmp(argv[c], "-l")) opbegin = c;
@@ -87,8 +231,12 @@ int submain(int argc, char** argv) {
 
             if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
         }
-    } else
-    if (!strcmp(argv[0], "-a") && argc >= 2) {
+    } else if (!strcmp(argv[0], "-g") && argc >= 4) {
+            std::string confFilePath = argv[1];
+            std::string romFilePath = argv[2];
+            std::string folderPath = argv[3];
+            ret = generateRomFromConf(confFilePath, romFilePath, folderPath);
+    } else if (!strcmp(argv[0], "-a") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             for (int i = 2; i < argc; i++) {
                 if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
@@ -96,8 +244,7 @@ int submain(int argc, char** argv) {
 
             if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
         }
-    } else
-    if (!strcmp(argv[0], "-s") && argc >= 2) {
+    } else if (!strcmp(argv[0], "-s") && argc >= 2) {
         ret = RunScript(argv[1]);
     }
 
@@ -135,7 +282,7 @@ class fixfile {
 
 #define HEX(x) std::hex << x << std::dec
 #define CHKFILE(x) (GetFileSize(x)<0) ? -ENOENT : RET_OK
-#define CHKRESET(x) if (util::Basename(x) == "RESET") {ROMIMG.addFile(x, true); continue;}
+#define CHKRESET(x) if (util::Basename(x) == "RESET") {ROMIMG.addFile(x, true, true, 0); continue;}
 
 std::vector<fixfile> FFiles;
 std::vector<fixfile> CFiles;
@@ -194,7 +341,7 @@ int WriteImage(rom* ROM) {
                     }
                     if (chosen) { // found gap filler. write it down and remove it from the array to avoid parsing it twice
                         printf(FFMT "\n", CFiles[chosen].fname.c_str(), CFiles[chosen].fsize, writtenbytes);
-                        ROM->addFile(CFiles[chosen].fname, false);
+                        ROM->addFile(CFiles[chosen].fname, false, true, 0);
                         writtenbytes += CFiles[chosen].fsize;
                         CFiles.erase(CFiles.begin()+chosen);
                     } else gapforce = true; // gap filler not found, force the usage of blank gap filler.
@@ -206,7 +353,7 @@ int WriteImage(rom* ROM) {
                     ret = -1;
                     break;
                 }
-                ROM->addFile(FFiles[z].fname, true);
+                ROM->addFile(FFiles[z].fname, true, true, 0);
                 writtenbytes += FFiles[z].fsize;
                 z++;
                 continue;
@@ -218,7 +365,7 @@ int WriteImage(rom* ROM) {
                 Tdeadgap += gap;
 
                 printf(YELBOLD FFMT " (%ld)" DEFCOL "\n", FFiles[z].fname.c_str(), FFiles[z].fsize, writtenbytes, FFiles[z].offset);
-                ROM->addFile(FFiles[z].fname, true);
+                ROM->addFile(FFiles[z].fname, true, true, 0);
                 writtenbytes += FFiles[z].fsize;
                 z++;
             }
@@ -226,7 +373,7 @@ int WriteImage(rom* ROM) {
         }
         if (x < CFiles.size()) { // condition in case we eat CFiles list before writing all FFiles
             printf(FFMT "\n", CFiles[x].fname.c_str(), CFiles[x].fsize, writtenbytes);
-            ROM->addFile(CFiles[x].fname, false);
+            ROM->addFile(CFiles[x].fname, false, true, 0);
             writtenbytes += CFiles[x].fsize;
             x++;
         }

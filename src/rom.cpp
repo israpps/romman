@@ -41,6 +41,7 @@ int rom::CreateBlank(std::string path) {
     util::GetLocalhostName(Localhost, sizeof(Localhost));
     util::getCWD(cwd, sizeof(cwd));
     comment_len = 31 + strlen(filename.c_str()) + strlen(user ? user : "") + strlen(Localhost) + strlen(cwd);
+    // DPRINTF("Comment length: %u\n", comment_len);
     rom::comment = (char*)MALLOC(comment_len);
     snprintf(rom::comment, comment_len-1, "%08x,conffile,%s,%s@%s/%s",
         rom::date, filename.c_str(),
@@ -306,7 +307,7 @@ int rom::CheckExtInfoStat(filefd *fd, uint8_t type)
     return ret;
 }
 
-int rom::addFile(std::string path, bool isFixed)
+int rom::addFile(std::string path, bool isFixed, bool isDate, uint16_t version)
 {
     //DPRINTF("%s(%s) %d cnt\n", __FUNCTION__, path.c_str(), files.size());
     // size_t x;
@@ -330,14 +331,18 @@ int rom::addFile(std::string path, bool isFixed)
                 strncpy((char*)file.RomDir.name, Fname, sizeof(file.RomDir.name));
                 file.RomDir.ExtInfoEntrySize = 0;
                 FileDateStamp = util::GetFileCreationDate(path.c_str());
-                AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_DATE, &FileDateStamp, 4);
+                if (isDate) AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_DATE, &FileDateStamp, 4);
                 if (isFixed) AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_FIXED, nullptr, 0);
                 if (util::IsSonyRXModule(path)) {
-                    char ModuleDescription[32];
+                    char ModuleDescription[32] = {0};
                     if ((result = util::GetSonyRXModInfo(path, ModuleDescription, sizeof(ModuleDescription), &FileVersion)) == RET_OK) {
-                        AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_VERSION, &FileVersion, 2);
-                        AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_COMMENT, ModuleDescription, strlen(ModuleDescription) + 1);
+                        if (strlen(ModuleDescription) > 0) {
+                            AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_VERSION, &FileVersion, 2);
+                            AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_COMMENT, ModuleDescription, strlen(ModuleDescription) + 1);
+                        }
                     }
+                } else if (version > 0) {
+                    result = AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_VERSION, &version, 2);
                 } else
                     result = RET_OK;
                 if (result == RET_OK) {
@@ -635,14 +640,14 @@ int rom::dumpContents(void) {
 
     for (i = -1; i == -1 || i < files.size(); i++) {
         romDirName = (i == -1) ? "ROMDIR" : (char*) files[i].RomDir.name;
-        if (romDirName != "-") {
-            void* pdate = malloc(sizeof(rom::date));
-            filefd FD;
-            char filename[11];
-            strncpy(filename, romDirName.c_str(), sizeof(filename) - 1);
-            filename[sizeof(filename) - 1] = '\0';
-            openFile(filename, &FD);
+        void* pdate = malloc(sizeof(rom::date));
+        filefd FD;
+        char filename[11];
+        strncpy(filename, romDirName.c_str(), sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+        openFile(filename, &FD);
 
+        if (romDirName != "-") {
             fprintf(Fconf, "%s,", romDirName.c_str());
             uint16_t temp;
             // fprintf(Fconf, "0x%06x  ", currentOffset);
@@ -670,34 +675,34 @@ int rom::dumpContents(void) {
                 FREE(currentComment);
             }
             fprintf(Fconf, "\n");
-            if (i >= 0) {
-                if (files[i].RomDir.size > 0) {
-                    std::string dpath = fol + romDirName;
-                    FILE* F;
-                    if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                        if (romDirName != "-") {
-                            if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                                DERROR("\nError writing to file %s\n", dpath.c_str());
-                            }
-                            fclose(F);
-
-                        } else {
-                            fclose(F);
-                        }
-                        // Update the current offset
-                        currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
-                    } else {
-                        ret = -EIO;
-                        DERROR("\nCan't create file: %s\n", dpath.c_str());
-                        fclose(Fconf);
-                        break;
-                    }
-                } else {
-                    DWARN("\nentry '%s' is 0 byte sized? skipping\n", romDirName.c_str());
-                }
-            }
-            util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
         }
+        if (i >= 0) {
+            if (files[i].RomDir.size > 0) {
+                std::string dpath = fol + romDirName;
+                FILE* F;
+                if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
+                    if (romDirName != "-") {
+                        if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                            DERROR("\nError writing to file %s\n", dpath.c_str());
+                        }
+                        fclose(F);
+
+                    } else {
+                        fclose(F);
+                    }
+                    // Update the current offset
+                    currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
+                } else {
+                    ret = -EIO;
+                    DERROR("\nCan't create file: %s\n", dpath.c_str());
+                    fclose(Fconf);
+                    break;
+                }
+            } else {
+                DWARN("\nentry '%s' is 0 byte sized? skipping\n", romDirName.c_str());
+            }
+        }
+        util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
     }
     fclose(Fconf);
     printf("\n");
@@ -713,7 +718,7 @@ int rom::write() {
 
 int rom::write(std::string file)
 {
-    //DPRINTF("Create image %s with %d files\n", file.c_str(), files.size());
+    // DPRINTF("Create image %s with %d files\n", file.c_str(), files.size());
     int result;
     unsigned char *extinfo;
     rom::DirEntry ROMDIR_romdir, EXTINFO_romdir, NULL_romdir;
