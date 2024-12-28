@@ -330,7 +330,7 @@ int rom::addFile(std::string path, bool isFixed, bool isDate, uint16_t version)
                 memset(&file, 0, sizeof(FileEntry));
                 strncpy((char*)file.RomDir.name, Fname, sizeof(file.RomDir.name));
                 file.RomDir.ExtInfoEntrySize = 0;
-                FileDateStamp = util::GetFileCreationDate(path.c_str());
+                FileDateStamp = util::GetFileModificationDate(path.c_str());
                 if (isDate) AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_DATE, &FileDateStamp, 4);
                 if (isFixed) AddExtInfoStat(&file, EXTINFO_FIELD_TYPE_FIXED, nullptr, 0);
                 if (util::IsSonyRXModule(path)) {

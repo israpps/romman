@@ -90,27 +90,30 @@ int util::getCWD(char *buffer, uint32_t BufferSize) {
 #endif
 }
 
-uint32_t util::GetFileCreationDate(const char* path) {
+uint32_t util::GetFileModificationDate(const char* path) {
 #if defined(_WIN32) || defined(WIN32)
     HANDLE hFile;
-    FILETIME CreationTime;
-    SYSTEMTIME CreationSystemTime;
+    FILETIME ModificationTime;
+    SYSTEMTIME ModificationSystemTime;
 
     if ((hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) != INVALID_HANDLE_VALUE) {
-        GetFileTime(hFile, &CreationTime, NULL, NULL);
+        GetFileTime(hFile, NULL, NULL, &ModificationTime);
         CloseHandle(hFile);
 
-        FileTimeToSystemTime(&CreationTime, &CreationSystemTime);
+        FileTimeToSystemTime(&ModificationTime, &ModificationSystemTime);
     } else
-        GetSystemTime(&CreationSystemTime);
+        GetSystemTime(&ModificationSystemTime);
 
-    return (((unsigned int) util::ConvertToBase16(CreationSystemTime.wYear)) << 16 | util::ConvertToBase16(CreationSystemTime.wMonth) << 8 | util::ConvertToBase16(CreationSystemTime.wDay));
+    return (((unsigned int) util::ConvertToBase16(ModificationSystemTime.wYear)) << 16 | util::ConvertToBase16(ModificationSystemTime.wMonth) << 8 | util::ConvertToBase16(ModificationSystemTime.wDay));
 #else
-    struct tm* clock;                    // create a time structure
-    struct stat attrib;                  // create a file attribute structure
-    stat(path, &attrib);                 // get the attributes of afile.txt
-    clock = gmtime(&(attrib.st_mtime));  // Get the last modified time and put it into the time structure
-    return (((unsigned int) util::ConvertToBase16(clock->tm_year + 1900)) << 16 | util::ConvertToBase16(clock->tm_mon) << 8 | util::ConvertToBase16(clock->tm_mday));
+    struct tm* clock;                // create a time structure
+    struct stat attrib;              // create a file attribute structure
+    if (stat(path, &attrib) != 0) {  // get the attributes of the file
+        return 0;                    // return 0 if stat fails
+    }
+    clock = localtime(&(attrib.st_mtime));  // Get the last modified time and put it into the time structure
+    DPRINTF("File modification date: %d-%d-%d\n", clock->tm_year + 1900, clock->tm_mon + 1, clock->tm_mday);
+    return (((unsigned int) util::ConvertToBase16(clock->tm_year + 1900)) << 16 | util::ConvertToBase16(clock->tm_mon + 1) << 8 | util::ConvertToBase16(clock->tm_mday));
 #endif
 }
 
@@ -166,7 +169,7 @@ bool util::SetFileModificationDate(const char* path, uint32_t date) {
     struct tm clock = {0};
 
     clock.tm_year = year - 1900;
-    clock.tm_mon = month;
+    clock.tm_mon = month - 1;  // Month is 0-11
     clock.tm_mday = day;
 
     clock.tm_hour = 0;  // Set time to midnight
