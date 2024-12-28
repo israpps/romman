@@ -642,6 +642,8 @@ int rom::dumpContents(void) {
 
     for (i = -1; i == -1 || i < files.size(); i++) {
         romDirName = (i == -1) ? "ROMDIR" : (char*) files[i].RomDir.name;
+        if (romDirName == "-")
+            continue;
         void* pdate = malloc(sizeof(rom::date));
         filefd FD;
         char filename[11];
@@ -649,49 +651,44 @@ int rom::dumpContents(void) {
         filename[sizeof(filename) - 1] = '\0';
         openFile(filename, &FD);
 
-        if (romDirName != "-") {
-            fprintf(Fconf, "%s,", romDirName.c_str());
-            uint16_t temp;
-            // fprintf(Fconf, "0x%06x  ", currentOffset);
-            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void**) &temp, sizeof(uint16_t)) >= 0) {
-                fprintf(Fconf, "%zu", currentOffset);
-            }
-
-            fprintf(Fconf, ",");
-            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
-                date_helper dh = {0};
-                dh = *(date_helper*) pdate;
-                fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
-            } else {
-                fprintf(Fconf, "-");
-            }
-
-            fprintf(Fconf, ",");
-            uint16_t version;
-            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void**) &version, sizeof(uint16_t)) >= 0)
-                fprintf(Fconf, "0x%04x", version);
-
-            fprintf(Fconf, ",");
-            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**) &currentComment, 0) >= 0) {
-                fprintf(Fconf, "%s", currentComment);
-                FREE(currentComment);
-            }
-            fprintf(Fconf, "\n");
+        fprintf(Fconf, "%s,", romDirName.c_str());
+        uint16_t temp;
+        // fprintf(Fconf, "0x%06x  ", currentOffset);
+        if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void**) &temp, sizeof(uint16_t)) >= 0) {
+            fprintf(Fconf, "%zu", currentOffset);
         }
+
+        fprintf(Fconf, ",");
+        if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
+            date_helper dh = {0};
+            dh = *(date_helper*) pdate;
+            fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
+        } else {
+            fprintf(Fconf, "-");
+        }
+
+        fprintf(Fconf, ",");
+        uint16_t version;
+        if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_VERSION, (void**) &version, sizeof(uint16_t)) >= 0)
+            fprintf(Fconf, "0x%04x", version);
+
+        fprintf(Fconf, ",");
+        if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**) &currentComment, 0) >= 0) {
+            fprintf(Fconf, "%s", currentComment);
+            FREE(currentComment);
+        }
+        fprintf(Fconf, "\n");
+
         if (i >= 0) {
             if (files[i].RomDir.size > 0) {
                 std::string dpath = fol + romDirName;
                 FILE* F;
                 if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                    if (romDirName != "-") {
-                        if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                            DERROR("\nError writing to file %s\n", dpath.c_str());
-                        }
-                        fclose(F);
-
-                    } else {
-                        fclose(F);
+                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                        DERROR("\nError writing to file %s\n", dpath.c_str());
                     }
+                    fclose(F);
+
                     // Update the current offset
                     currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
                 } else {
