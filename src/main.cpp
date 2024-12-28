@@ -65,7 +65,7 @@ std::vector<ConfFileEntry> parseConfFile(const std::string& confFilePath) {
 
 int generateRomFromConf(const std::string& confFilePath, const std::string& romFilePath, const std::string& folderPath) {
     rom ROMIMG;
-    int ret = ROMIMG.CreateBlank(romFilePath);
+    int ret = ROMIMG.CreateBlank(romFilePath, util::Basename(confFilePath), folderPath);
     if (ret != RET_OK)
         return ret;
 
@@ -224,7 +224,7 @@ int submain(int argc, char** argv) {
         }
     } else
     if (!strcmp(argv[0], "-c") && argc >= 2) {
-        if (!(ret = ROMIMG.CreateBlank(argv[1]))) {
+        if (!(ret = ROMIMG.CreateBlank(argv[1], "", ""))) {
             for (int i = 2; i < argc; i++) {
                 if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
             }
@@ -417,7 +417,7 @@ int RunScript(std::string script) {
             else if (std::regex_search(line, match, cimg) && imagename == "") {
                 if (VERB()) std::cout << GRNBOLD "> Create image file: '" << match[1] << DEFCOL "'\n";
                 imagename = match[1];
-                ret = ROMIMG.CreateBlank(imagename);
+                ret = ROMIMG.CreateBlank(imagename, "", "");
             } else
             if (std::regex_search(line, match, dfixfil)) {
                 CHKRESET(match[1]);

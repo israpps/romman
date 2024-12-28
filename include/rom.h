@@ -68,7 +68,7 @@ public: //constants
 public:
     rom();
     ~rom();
-    int CreateBlank(std::string filename);
+    int CreateBlank(std::string filename, std::string confname, std::string folder);
     int open(std::string path);
     int write(std::string file);
     int write();

@@ -23,43 +23,43 @@ rom::~rom() {
 
 }
 
-int rom::CreateBlank(std::string path) {
+int rom::CreateBlank(std::string path, std::string confname, std::string folder) {
     uint32_t comment_len = 0;
-    char Localhost[32], cwd[128], *user;
-    char altuser[16] = "unknown";
-    ExtInfoFieldEntry *ExtInfoEntry;
+    ExtInfoFieldEntry* ExtInfoEntry;
     rom::img_filepath = path;
     std::string filename = util::Basename(path);
 
     date = util::GetSystemDate();
-#if defined(_WIN32) || defined(WIN32)
-    user = getenv("USERNAME");
-#else
-    user = getenv("USER");
-#endif
-    if (user == NULL) user = altuser;
-    util::GetLocalhostName(Localhost, sizeof(Localhost));
-    util::getCWD(cwd, sizeof(cwd));
-    comment_len = 31 + strlen(filename.c_str()) + strlen(user ? user : "") + strlen(Localhost) + strlen(cwd);
-    // DPRINTF("Comment length: %u\n", comment_len);
-    rom::comment = (char*)MALLOC(comment_len);
-    snprintf(rom::comment, comment_len-1, "%08x,conffile,%s,%s@%s/%s",
-        rom::date, filename.c_str(),
-        user ? user : "",
-        Localhost, cwd);
+
+    if (confname == "")
+        confname = "conffile";
+    if (folder == "") {
+        char cwd[128];
+        util::getCWD(cwd, sizeof(cwd));
+        folder = cwd;
+    }
+    comment_len = 31 + strlen(filename.c_str()) + strlen(confname.c_str()) + strlen(folder.c_str());
+    DPRINTF("Comment length: %u\n", comment_len);
+    rom::comment = (char*) MALLOC(comment_len);
+
+    snprintf(rom::comment, comment_len - 1, "%08x,%s,%s,%s",
+             rom::date,
+             confname.c_str(),
+             filename.c_str(),
+             folder.c_str());
 
     rom::FileEntry ResetFile;
     memset(ResetFile.RomDir.name, 0, sizeof(ResetFile.RomDir.name));
-    strcpy((char*)ResetFile.RomDir.name, "RESET");
+    strcpy((char*) ResetFile.RomDir.name, "RESET");
     ResetFile.RomDir.ExtInfoEntrySize = sizeof(ExtInfoFieldEntry) + sizeof(rom::date);
     ResetFile.RomDir.size = 0;
     ResetFile.FileData = NULL;
-    ResetFile.ExtInfoData = (uint8_t*)MALLOC(ResetFile.RomDir.ExtInfoEntrySize);
-    ExtInfoEntry = (ExtInfoFieldEntry *)ResetFile.ExtInfoData;
+    ResetFile.ExtInfoData = (uint8_t*) MALLOC(ResetFile.RomDir.ExtInfoEntrySize);
+    ExtInfoEntry = (ExtInfoFieldEntry*) ResetFile.ExtInfoData;
     ExtInfoEntry->value = 0;
     ExtInfoEntry->ExtLength = sizeof(rom::date);
     ExtInfoEntry->type = EXTINFO_FIELD_TYPE_DATE;
-    memcpy((void *)(ResetFile.ExtInfoData + sizeof(ExtInfoFieldEntry)), &date, ExtInfoEntry->ExtLength);
+    memcpy((void*) (ResetFile.ExtInfoData + sizeof(ExtInfoFieldEntry)), &date, ExtInfoEntry->ExtLength);
 
     files.push_back(ResetFile);
     return RET_OK;

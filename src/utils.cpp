@@ -112,7 +112,6 @@ uint32_t util::GetFileModificationDate(const char* path) {
         return 0;                    // return 0 if stat fails
     }
     clock = localtime(&(attrib.st_mtime));  // Get the last modified time and put it into the time structure
-    DPRINTF("File modification date: %d-%d-%d\n", clock->tm_year + 1900, clock->tm_mon + 1, clock->tm_mday);
     return (((unsigned int) util::ConvertToBase16(clock->tm_year + 1900)) << 16 | util::ConvertToBase16(clock->tm_mon + 1) << 8 | util::ConvertToBase16(clock->tm_mday));
 #endif
 }
