@@ -62,6 +62,7 @@ namespace util {
     int getCWD(char *buffer, uint32_t BufferSize);
     unsigned short int ConvertToBase16(unsigned short int value);
     uint32_t GetFileCreationDate(const char *path);
+    bool SetFileModificationDate(const char *path, uint32_t date);
     bool IsSonyRXModule(std::string path);
     int GetSonyRXModInfo(std::string path, char *description, uint32_t MaxLength, uint16_t *version);
     std::string Basename(std::string path);

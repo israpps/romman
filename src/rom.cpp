@@ -658,9 +658,9 @@ int rom::dumpContents(void) {
             fprintf(Fconf, "%zu", currentOffset);
         }
 
+        date_helper dh = {0};
         fprintf(Fconf, ",");
         if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date)) >= 0) {
-            date_helper dh = {0};
             dh = *(date_helper*) pdate;
             fprintf(Fconf, "%04x/%02x/%02x", dh.sdate.yrs, dh.sdate.mon, dh.sdate.day);
         } else {
@@ -689,6 +689,10 @@ int rom::dumpContents(void) {
                     }
                     fclose(F);
 
+                    if (dh.fdate != 0) {
+                        uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
+                        util::SetFileModificationDate(dpath.c_str(), date);
+                    }
                     // Update the current offset
                     currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
                 } else {

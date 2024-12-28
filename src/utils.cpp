@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <utime.h>
 #if defined(_WIN32) || defined(WIN32)
 #include <windows.h>
 #include <windef.h>
@@ -89,28 +90,105 @@ int util::getCWD(char *buffer, uint32_t BufferSize) {
 #endif
 }
 
-
-uint32_t util::GetFileCreationDate(const char *path) {
+uint32_t util::GetFileCreationDate(const char* path) {
 #if defined(_WIN32) || defined(WIN32)
-   HANDLE hFile;
-   FILETIME CreationTime;
-   SYSTEMTIME CreationSystemTime;
+    HANDLE hFile;
+    FILETIME CreationTime;
+    SYSTEMTIME CreationSystemTime;
 
-   if ((hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) != INVALID_HANDLE_VALUE) {
-      GetFileTime(hFile, &CreationTime, NULL, NULL);
-      CloseHandle(hFile);
+    if ((hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) != INVALID_HANDLE_VALUE) {
+        GetFileTime(hFile, &CreationTime, NULL, NULL);
+        CloseHandle(hFile);
 
-      FileTimeToSystemTime(&CreationTime, &CreationSystemTime);
-   } else
-      GetSystemTime(&CreationSystemTime);
+        FileTimeToSystemTime(&CreationTime, &CreationSystemTime);
+    } else
+        GetSystemTime(&CreationSystemTime);
 
-   return (((unsigned int)util::ConvertToBase16(CreationSystemTime.wYear)) << 16 | util::ConvertToBase16(CreationSystemTime.wMonth) << 8 | util::ConvertToBase16(CreationSystemTime.wDay));
+    return (((unsigned int) util::ConvertToBase16(CreationSystemTime.wYear)) << 16 | util::ConvertToBase16(CreationSystemTime.wMonth) << 8 | util::ConvertToBase16(CreationSystemTime.wDay));
 #else
-   struct tm *clock;                    // create a time structure
-   struct stat attrib;                  // create a file attribute structure
-   stat(path, &attrib);                 // get the attributes of afile.txt
-   clock = gmtime(&(attrib.st_mtime));  // Get the last modified time and put it into the time structure
-   return (((unsigned int)util::ConvertToBase16(clock->tm_year + 1900)) << 16 | util::ConvertToBase16(clock->tm_mon) << 8 | util::ConvertToBase16(clock->tm_mday));
+    struct tm* clock;                    // create a time structure
+    struct stat attrib;                  // create a file attribute structure
+    stat(path, &attrib);                 // get the attributes of afile.txt
+    clock = gmtime(&(attrib.st_mtime));  // Get the last modified time and put it into the time structure
+    return (((unsigned int) util::ConvertToBase16(clock->tm_year + 1900)) << 16 | util::ConvertToBase16(clock->tm_mon) << 8 | util::ConvertToBase16(clock->tm_mday));
+#endif
+}
+
+bool util::SetFileModificationDate(const char* path, uint32_t date) {
+    // Create a buffer to store the hex string (8 characters for 32-bit hex)
+    char hex_str[9];
+    snprintf(hex_str, sizeof(hex_str), "%08X", date);  // Format date into hex string (8 digits)
+
+    // Parse date: YYYYMMDD
+    char year_str[5], month_str[3], day_str[3];
+
+    // Extract year (first 4 symbols after '0x')
+    snprintf(year_str, sizeof(year_str), "%c%c%c%c", hex_str[0], hex_str[1], hex_str[2], hex_str[3]);
+    unsigned long year = strtoul(year_str, NULL, 10);
+
+    // Extract month (next 2 symbols)
+    snprintf(month_str, sizeof(month_str), "%c%c", hex_str[4], hex_str[5]);
+    unsigned long month = strtoul(month_str, NULL, 10);
+
+    // Extract day (last 2 symbols)
+    snprintf(day_str, sizeof(day_str), "%c%c", hex_str[6], hex_str[7]);
+    unsigned long day = strtoul(day_str, NULL, 10);
+#if defined(_WIN32) || defined(WIN32)
+    HANDLE hFile;
+    FILETIME ModificationTime;
+    SYSTEMTIME ModificationSystemTime;
+
+    ModificationSystemTime.wYear = year;
+    ModificationSystemTime.wMonth = month;
+    ModificationSystemTime.wDay = day;
+    ModificationSystemTime.wHour = 0;
+    ModificationSystemTime.wMinute = 0;
+    ModificationSystemTime.wSecond = 0;
+    ModificationSystemTime.wMilliseconds = 0;
+
+    if (!SystemTimeToFileTime(&ModificationSystemTime, &ModificationTime)) {
+        return false;
+    }
+
+    if ((hFile = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) != INVALID_HANDLE_VALUE) {
+        if (!SetFileTime(hFile, NULL, NULL, &ModificationTime)) {
+            CloseHandle(hFile);
+            return false;
+        }
+        CloseHandle(hFile);
+    } else {
+        return false;
+    }
+
+    return true;
+#else
+    struct utimbuf new_times;
+    struct tm clock = {0};
+
+    clock.tm_year = year - 1900;
+    clock.tm_mon = month;
+    clock.tm_mday = day;
+
+    clock.tm_hour = 0;  // Set time to midnight
+    clock.tm_min = 0;
+    clock.tm_sec = 0;
+
+    // Convert to time_t
+    time_t modTime = mktime(&clock);
+    if (modTime == -1) {
+        return false;
+    }
+
+    // Set both access and modification times
+    new_times.actime = modTime;   // Access time
+    new_times.modtime = modTime;  // Modification time
+
+    // Update file modification time
+    if (utime(path, &new_times) != 0) {
+        return false;
+    }
+
+    return true;
 #endif
 }
 
