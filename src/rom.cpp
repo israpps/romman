@@ -599,22 +599,20 @@ int rom::dumpContents(std::string file) {
     uint32_t TotalSize = 0;
     int ret = -ENOENT;
     for (size_t i = 0; i < files.size(); TotalSize += files[i].RomDir.size, i++) {
-        if (!strncmp(file.c_str(), (const char*)files[i].RomDir.name, sizeof(files[i].RomDir.name))) {
-            if (files[i].RomDir.size > 0) {
-                FILE* F;
-                if ((F = fopen(file.c_str(), "wb")) != NULL) {
-                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                        DERROR("# Error writing to file %s\n", file.c_str());
-                        ret = -EIO;
-                        fclose(F);
-                        break;
-                    }
-                    fclose(F);
-                    ret = RET_OK;
-                } else {
-                    DERROR("# Can't create file: %s\n", file.c_str());
+        if (!strncmp(file.c_str(), (const char*) files[i].RomDir.name, sizeof(files[i].RomDir.name))) {
+            FILE* F;
+            if ((F = fopen(file.c_str(), "wb")) != NULL) {
+                if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                    DERROR("# Error writing to file %s\n", file.c_str());
                     ret = -EIO;
+                    fclose(F);
+                    break;
                 }
+                fclose(F);
+                ret = RET_OK;
+            } else {
+                DERROR("# Can't create file: %s\n", file.c_str());
+                ret = -EIO;
             }
         }
     }
