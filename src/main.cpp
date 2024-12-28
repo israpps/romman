@@ -233,8 +233,8 @@ int submain(int argc, char** argv) {
         }
     } else if (!strcmp(argv[0], "-g") && argc >= 4) {
             std::string confFilePath = argv[1];
-            std::string romFilePath = argv[2];
-            std::string folderPath = argv[3];
+            std::string folderPath = argv[2];
+            std::string romFilePath = argv[3];
             ret = generateRomFromConf(confFilePath, romFilePath, folderPath);
     } else if (!strcmp(argv[0], "-a") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
@@ -463,27 +463,31 @@ int RunScript(std::string script) {
     return ret;
 }
 
-
 int help() {
-    printf("# Supported commands:\n"
-    "\t-c <new_image> <files...>\n"
-    "\t\tCreate a new ROM image with some files\n"
+    printf(
+        "# Supported commands:\n"
+        "\t-g <configuration file> <folder with files> <new_image>\n"
+        "\t\tCreates a new ROM image with files from the specified folder based on the configuration file.\n"
+        "\t\tYou can add files by adding lines to the configuration file in the following format:\n"
+        "\t\t<module name>,<fixed offset>,<modification date>,<file version>,<comment>\n"
+        "\t\tFor example: USBD,,,,\n"
+        "\t\tAll fields except the module name can be empty. The modification date can be set to '-' to indicate that the date should not be written back.\n"
 
-//    "\t-d\t NOT IMPLEMENTED\n"
+        "\t-x <image> [<files...>]\n"
+        "\t\tExtracts the contents of the ROM image.\n"
+        "\t\tIf no additional parameters are provided, it dumps the entire image to a subfolder named ext_<image>.\n"
 
-    "\t-x <image> <files...>\n"
-    "\t\tExtracts contents of the ROM Image.\n"
-    "\t\tif no additional params are provided it dumps whole image to subfolder by the name ext_<image>\n"
+        "\t-l <image>\n"
+        "\t\tLists the contents of the image.\n"
 
-    "\t-l <image>\n"
-    "\t\tList the contents of the image\n"
+        "\t-a <image> <files...>\n"
+        "\t\tAdds file(s) to an existing image.\n"
 
-    "\t-a <image> <files...>\n"
-    "\t\tAdd file(s) to existing image\n"
+        "\t-c <new_image> <files...>\n"
+        "\t\tCreates a new ROM image with the specified files (deprecated).\n"
 
-    "\t-s <file>\n"
-    "\t\t Run a romman script\n"
-    "\t\t more info about script language at " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n"
-    );
+        "\t-s <file>\n"
+        "\t\tRuns a ROM manager script.\n"
+        "\t\tFor more information about the script language, visit " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n");
     return 1;
 }
