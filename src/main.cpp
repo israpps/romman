@@ -176,13 +176,13 @@ int main (int argc, char** argv) {
             if (!strcmp(argv[c], "-h")) {return help();}
             else if (!strcmp(argv[c], "--verbose") && VERB()) Gflags |= VERBOSE; // silent has priority
             //program operations
-            else if (!strcmp(argv[c], "-c")) opbegin = c;
+            // else if (!strcmp(argv[c], "-c")) opbegin = c;
             else if (!strcmp(argv[c], "-g")) opbegin = c;
             else if (!strcmp(argv[c], "-d")) opbegin = c;
             else if (!strcmp(argv[c], "-x")) opbegin = c;
             else if (!strcmp(argv[c], "-l")) opbegin = c;
             else if (!strcmp(argv[c], "-a")) opbegin = c;
-            else if (!strcmp(argv[c], "-s")) opbegin = c;
+            // else if (!strcmp(argv[c], "-s")) opbegin = c;
         }
         if (opbegin != -ENOENT) ret = submain(argc-opbegin, argv+opbegin);
     }
@@ -204,53 +204,54 @@ int main (int argc, char** argv) {
 int submain(int argc, char** argv) {
     int ret = RET_OK;
     if (VERB())
-        std::cout << "#PlayStation2 ROM Manager v" <<MAJOR<<"."<<MINOR<<"."<<PATCH<<" compiled " << buildate << "\n";
+        std::cout << "#PlayStation2 ROM Manager v" << MAJOR << "." << MINOR << "." << PATCH << " compiled " << buildate << "\n";
     rom ROMIMG;
     if (!strcmp(argv[0], "-l") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             ret = ROMIMG.displayContents();
         }
-    } else
-    if (!strcmp(argv[0], "-x") && argc >= 2) {
+    } else if (!strcmp(argv[0], "-x") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             if (argc == 2) {
                 ret = ROMIMG.dumpContents();
             } else {
-                for (int i = 2; i < argc; i++)
-                {
-                    if ((ret = ROMIMG.dumpContents(argv[i])) != RET_OK) break;
+                for (int i = 2; i < argc; i++) {
+                    if ((ret = ROMIMG.dumpContents(argv[i])) != RET_OK)
+                        break;
                 }
             }
         }
-    } else
-    if (!strcmp(argv[0], "-c") && argc >= 2) {
+    /* } else if (!strcmp(argv[0], "-c") && argc >= 2) {
         if (!(ret = ROMIMG.CreateBlank(argv[1], "", ""))) {
             for (int i = 2; i < argc; i++) {
-                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
+                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK)
+                    break;
             }
 
-            if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
-        }
+            if (ret == RET_OK)
+                ret = ROMIMG.write(argv[1]);
+        } */
     } else if (!strcmp(argv[0], "-g") && argc >= 4) {
-            std::string confFilePath = argv[1];
-            std::string folderPath = argv[2];
-            std::string romFilePath = argv[3];
-            ret = generateRomFromConf(confFilePath, romFilePath, folderPath);
+        std::string confFilePath = argv[1];
+        std::string folderPath = argv[2];
+        std::string romFilePath = argv[3];
+        ret = generateRomFromConf(confFilePath, romFilePath, folderPath);
     } else if (!strcmp(argv[0], "-a") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             for (int i = 2; i < argc; i++) {
-                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK) break;
+                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK)
+                    break;
             }
 
-            if (ret == RET_OK) ret = ROMIMG.write(argv[1]);
+            if (ret == RET_OK)
+                ret = ROMIMG.write(argv[1]);
         }
-    } else if (!strcmp(argv[0], "-s") && argc >= 2) {
-        ret = RunScript(argv[1]);
+/*     } else if (!strcmp(argv[0], "-s") && argc >= 2) {
+        ret = RunScript(argv[1]); */
     }
 
 err:
     if (ret != RET_OK) {
-
     }
     return 0;
 }
@@ -483,10 +484,10 @@ int help() {
         "\t-a <image> <files...>\n"
         "\t\tAdds file(s) to an existing image.\n"
 
-        "\t-c <new_image> <files...>\n"
-        "\t\tCreates a new ROM image with the specified files (deprecated).\n"
+        "\t(disabled) -c <new_image> <files...>\n"
+        "\t\tCreates a new ROM image with the specified files.\n"
 
-        "\t-s <file>\n"
+        "\t(disabled) -s <file>\n"
         "\t\tRuns a ROM manager script.\n"
         "\t\tFor more information about the script language, visit " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n");
     return 1;
