@@ -624,7 +624,7 @@ int rom::dumpContents(void) {
     util::genericgaugepercent(0, "RESET");
     std::string imgn = util::Basename(rom::img_filepath);  // base name of the image for building subdir dumppath
     std::string fol = "./ext_" + imgn + PATHSEPS;
-    std::string conf = imgn + ".conf";
+    std::string conf = imgn.substr(0, imgn.find_last_of('.')) + ".csv";
     FILE* Fconf;
     char* currentComment = nullptr;
     int i;
@@ -634,6 +634,7 @@ int rom::dumpContents(void) {
         DERROR("\nCan't create file: %s\n", conf.c_str());
         return -EIO;
     }
+    fprintf(Fconf, "#Name,FixedOffset,Date,Version,Comment\n");
 
     if (util::dirExists(fol))
         MKDIR(fol.c_str());
