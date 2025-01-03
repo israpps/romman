@@ -498,6 +498,7 @@ int rom::displayContents()
         "#Props Name              Size      Offset        Date Version Comment\n"
         "#--------------------------------------------------------------------\n");
     unsigned int count = 0;
+    unsigned int TotalGapSize = 0;
 
     /**
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
@@ -505,6 +506,8 @@ int rom::displayContents()
     for (size_t i = 0; i < files.size(); TotalSize += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF, i++) {
         if (strncmp((const char*)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) != 0)
             count++;
+        else
+            TotalGapSize += files[i].RomDir.size;
 
         int a = 0;
         strncpy(filename, (const char*)files[i].RomDir.name, sizeof(filename) - 1);
@@ -591,7 +594,7 @@ int rom::displayContents()
         printf("\n");
     }
 
-    printf("\n# Total size: %u bytes.\n# File count: %lu\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, count);
+    printf("\n# Total size: %u bytes.\n# Total gap size: %u bytes.\n# File count: %u\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, TotalGapSize, count);
     return ret;
 }
 
