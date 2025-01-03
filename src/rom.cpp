@@ -503,9 +503,9 @@ int rom::displayContents()
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
      */
     for (size_t i = 0; i < files.size(); TotalSize += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF, i++) {
-        if (strncmp((const char*)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) == 0)
-            continue;
-        count++;
+        if (strncmp((const char*)files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) != 0)
+            count++;
+
         int a = 0;
         strncpy(filename, (const char*)files[i].RomDir.name, sizeof(filename) - 1);
         filename[sizeof(filename) - 1] = '\0';

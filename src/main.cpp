@@ -77,7 +77,6 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
     // DPRINTF("rom comment: %s\n", ROMIMG.comment);
     unsigned int CommentLengthRounded = (strlen(ROMIMG.comment) + 1 + 3) & ~3;
     // DPRINTF("rom comment length rounded: %u\n", CommentLengthRounded);
-    TotalExtInfoSize = sizeof(rom::ExtInfoFieldEntry) + CommentLengthRounded;  // extinfo for ROMDIR
     FILE* F;
     for (const auto& entry : entries) {
         std::string filePath = folderPath + "/" + entry.name;
@@ -106,8 +105,9 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
             return -ENOENT;
         }
     }
-    TotalExtInfoSize = (TotalExtInfoSize + 0xF) & ~0xF;  // Align
+    TotalExtInfoSize += CommentLengthRounded + (2 * sizeof(rom::ExtInfoFieldEntry));
     // DPRINTF("RomdirSize: %u, TotalExtInfoSize: %u\n", RomdirSize, TotalExtInfoSize);
+    TotalExtInfoSize = (TotalExtInfoSize + 0xF) & ~0xF;  // Align
     unsigned int currentOffset = 0;
     for (const auto& entry : entries) {
         std::string filePath = folderPath + "/" + entry.name;
