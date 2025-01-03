@@ -11,38 +11,43 @@
 #include <windef.h>
 #endif
 
-memtrack_t MTR; // rudimentary track down memory leaks?
+memtrack_t MTR;  // rudimentary track down memory leaks?
 void util::hexdump(const void* data, uint32_t size, bool hdr) {
     char ascii[17];
     uint32_t i, j;
     ascii[16] = '\0';
     if (hdr) {
-        for (i = 0; i < 16; i++) {if (i==8) printf(" "); printf("%02X ", i);}
+        for (i = 0; i < 16; i++) {
+            if (i == 8)
+                printf(" ");
+            printf("%02X ", i);
+        }
         printf("\n");
-        for (i = 0; i < 23; i++) printf("---");
+        for (i = 0; i < 23; i++)
+            printf("---");
         printf("\n");
     }
 
-
     for (i = 0; i < size; ++i) {
-        if (((unsigned char*)data)[i] == 0) printf(DGREY);
-        printf("%02X ", ((unsigned char*)data)[i]);
+        if (((unsigned char*) data)[i] == 0)
+            printf(DGREY);
+        printf("%02X ", ((unsigned char*) data)[i]);
         printf(DEFCOL);
-        if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
-            ascii[i % 16] = ((unsigned char*)data)[i];
+        if (((unsigned char*) data)[i] >= ' ' && ((unsigned char*) data)[i] <= '~') {
+            ascii[i % 16] = ((unsigned char*) data)[i];
         } else {
             ascii[i % 16] = '.';
         }
-        if ((i+1) % 8 == 0 || i+1 == size) {
+        if ((i + 1) % 8 == 0 || i + 1 == size) {
             printf(" ");
-            if ((i+1) % 16 == 0) {
+            if ((i + 1) % 16 == 0) {
                 printf("|  %s \n", ascii);
-            } else if (i+1 == size) {
-                ascii[(i+1) % 16] = '\0';
-                if ((i+1) % 16 <= 8) {
+            } else if (i + 1 == size) {
+                ascii[(i + 1) % 16] = '\0';
+                if ((i + 1) % 16 <= 8) {
                     printf(" ");
                 }
-                for (j = (i+1) % 16; j < 16; ++j) {
+                for (j = (i + 1) % 16; j < 16; ++j) {
                     printf("   ");
                 }
                 printf("|  %s \n", ascii);
@@ -56,18 +61,18 @@ uint32_t util::GetSystemDate() {
     SYSTEMTIME SystemTime;
     GetSystemTime(&SystemTime);
 
-    return (((unsigned int)ConvertToBase16(SystemTime.wYear)) << 16 | ConvertToBase16(SystemTime.wMonth) << 8 | ConvertToBase16(SystemTime.wDay));
+    return (((unsigned int) ConvertToBase16(SystemTime.wYear)) << 16 | ConvertToBase16(SystemTime.wMonth) << 8 | ConvertToBase16(SystemTime.wDay));
 #else
     time_t time_raw_format;
-    struct tm *ptr_time;
+    struct tm* ptr_time;
 
     time(&time_raw_format);
     ptr_time = localtime(&time_raw_format);
-    return (((unsigned int)ConvertToBase16(ptr_time->tm_year + 1900)) << 16 | ConvertToBase16(ptr_time->tm_mon + 1) << 8 | ConvertToBase16(ptr_time->tm_mday));
+    return (((unsigned int) ConvertToBase16(ptr_time->tm_year + 1900)) << 16 | ConvertToBase16(ptr_time->tm_mon + 1) << 8 | ConvertToBase16(ptr_time->tm_mday));
 #endif
 }
 
-int32_t util::GetLocalhostName(char *buffer, uint32_t BufferSize) {
+int32_t util::GetLocalhostName(char* buffer, uint32_t BufferSize) {
     int ret;
 #if defined(_WIN32) || defined(WIN32)
     DWORD lpnSize;
@@ -79,14 +84,14 @@ int32_t util::GetLocalhostName(char *buffer, uint32_t BufferSize) {
     return ret;
 }
 
-int util::getCWD(char *buffer, uint32_t BufferSize) {
+int util::getCWD(char* buffer, uint32_t BufferSize) {
 #if defined(_WIN32) || defined(WIN32)
-   return (GetCurrentDirectoryA(BufferSize, buffer) == 0 ? EIO : 0);
+    return (GetCurrentDirectoryA(BufferSize, buffer) == 0 ? EIO : 0);
 #else
-   if (getcwd(buffer, BufferSize) != NULL)
-      return 0;
-   else
-      return EIO;
+    if (getcwd(buffer, BufferSize) != NULL)
+        return 0;
+    else
+        return EIO;
 #endif
 }
 
@@ -197,128 +202,123 @@ bool util::SetFileModificationDate(const char* path, uint32_t date) {
 #include "ELF.h"
 
 bool util::IsSonyRXModule(std::string path) {
-	FILE *file;
-	elf_header_t header;
-	elf_shdr_t SectionHeader;
-	int result;
+    FILE* file;
+    elf_header_t header;
+    elf_shdr_t SectionHeader;
+    int result;
 
-	result = false;
-	if ((file = fopen(path.c_str(), "rb")) != NULL) {
-		fread(&header, 1, sizeof(elf_header_t), file);
-		if (*(uint32_t *)header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
-			unsigned int i;
-			for (i = 0; i < header.shnum; i++) {
-				fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
-				fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
+    result = false;
+    if ((file = fopen(path.c_str(), "rb")) != NULL) {
+        fread(&header, 1, sizeof(elf_header_t), file);
+        if (*(uint32_t*) header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
+            unsigned int i;
+            for (i = 0; i < header.shnum; i++) {
+                fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
+                fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
 
-				if ((SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) || (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB))) {
-					result = true;
-					break;
-				}
-			}
-		}
-		fclose(file);
-	}
-	return result;
+                if ((SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) || (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB))) {
+                    result = true;
+                    break;
+                }
+            }
+        }
+        fclose(file);
+    }
+    return result;
 }
 
+int util::GetSonyRXModInfo(std::string path, char* description, uint32_t MaxLength, uint16_t* version) {
+    FILE* file;
+    int result;
+    elf_header_t header;
+    elf_shdr_t SectionHeader;
 
-int util::GetSonyRXModInfo(std::string path, char *description, uint32_t MaxLength, uint16_t *version) {
+    result = -ENOENT;
+    if ((file = fopen(path.c_str(), "rb")) != NULL) {
+        fread(&header, 1, sizeof(elf_header_t), file);
+        if (*(uint32_t*) header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
+            unsigned int i;
+            for (i = 0; i < header.shnum; i++) {
+                fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
+                fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
 
-	FILE *file;
-	int result;
-	elf_header_t header;
-	elf_shdr_t SectionHeader;
-
-	result = -ENOENT;
-	if ((file = fopen(path.c_str(), "rb")) != NULL) {
-		fread(&header, 1, sizeof(elf_header_t), file);
-		if (*(uint32_t *)header.ident == ELF_MAGIC && (header.type == ELF_TYPE_ERX2 || header.type == ELF_TYPE_IRX)) {
-			unsigned int i;
-			for (i = 0; i < header.shnum; i++) {
-				fseek(file, header.shoff + i * header.shentsize, SEEK_SET);
-				fread(&SectionHeader, 1, sizeof(elf_shdr_t), file);
-
-				if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB) || SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
-					void *buffer;
+                if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB) || SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
+                    void* buffer;
                     buffer = MALLOC(SectionHeader.size);
-					if (buffer != NULL) {
-						fseek(file, SectionHeader.offset, SEEK_SET);
-						fread(buffer, 1, SectionHeader.size, file);
+                    if (buffer != NULL) {
+                        fseek(file, SectionHeader.offset, SEEK_SET);
+                        fread(buffer, 1, SectionHeader.size, file);
 
-						if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
-							*version = ((iopmod_t *)buffer)->version;
-							strncpy(description, ((iopmod_t *)buffer)->modname, MaxLength - 1);
-							description[MaxLength - 1] = '\0';
-						} else if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) {
-							*version = ((eemod_t *)buffer)->version;
-							strncpy(description, ((eemod_t *)buffer)->modname, MaxLength - 1);
-							description[MaxLength - 1] = '\0';
-						}
+                        if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_IOPMOD_TAB)) {
+                            *version = ((iopmod_t*) buffer)->version;
+                            strncpy(description, ((iopmod_t*) buffer)->modname, MaxLength - 1);
+                            description[MaxLength - 1] = '\0';
+                        } else if (SectionHeader.type == (SHT_LOPROC | SHT_LOPROC_EEMOD_TAB)) {
+                            *version = ((eemod_t*) buffer)->version;
+                            strncpy(description, ((eemod_t*) buffer)->modname, MaxLength - 1);
+                            description[MaxLength - 1] = '\0';
+                        }
 
-						result = RET_OK;
+                        result = RET_OK;
 
-						FREE(buffer);
-					} else
-						result = -ENOMEM;
-					break;
-				}
-			}
-		} else
-			result = -EINVAL;
+                        FREE(buffer);
+                    } else
+                        result = -ENOMEM;
+                    break;
+                }
+            }
+        } else
+            result = -EINVAL;
 
-		fclose(file);
-	} else
-		result = -ENOENT;
-	return result;
+        fclose(file);
+    } else
+        result = -ENOENT;
+    return result;
 }
 
 std::string util::Basename(std::string path) {
     size_t x = 0;
-        if ((x = path.find_last_of("/"
+    if ((x = path.find_last_of("/"
 #if defined(_WIN32) || defined(WIN32)
-        "\\"//windows cmd supports both separators, linux doesnt. match those behaviors
+                               "\\"  // windows cmd supports both separators, linux doesnt. match those behaviors
 #endif
-        )) != std::string::npos) {
-            return path.substr(x+1);
-        } else {
-            return path;
-        }
+                               )) != std::string::npos) {
+        return path.substr(x + 1);
+    } else {
+        return path;
+    }
 }
 
-int util::dirExists(std::string path)
-{
+int util::dirExists(std::string path) {
     struct stat info;
-    if(stat(path.c_str(), &info) != 0)
+    if (stat(path.c_str(), &info) != 0)
         return ENOENT;
-    else if(info.st_mode & S_IFDIR)
+    else if (info.st_mode & S_IFDIR)
         return 0;
     else
         return ENOTDIR;
 }
 
-void util::genericgauge(float progress, std::string extra)
-{
+void util::genericgauge(float progress, std::string extra) {
     int barWidth = 70;
 
     std::cout << "[";
     int pos = barWidth * progress;
-    for (int i = 0; i < barWidth; ++i)
-	{
-	  if (i < pos)
-	    std::cout << "=";
-	  else if (i == pos)
-	    std::cout << ">";
-	  else
-	    std::cout << " ";
-	}
-    std::cout << "] " << int (progress * 100.0) << "% [" << extra <<"]        \r";
-    std::cout.flush ();
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos)
+            std::cout << "=";
+        else if (i == pos)
+            std::cout << ">";
+        else
+            std::cout << " ";
+    }
+    std::cout << "] " << int(progress * 100.0) << "% [" << extra << "]        \r";
+    std::cout.flush();
 }
 
-//percentage represented on signed integer. values from 0-100
+// percentage represented on signed integer. values from 0-100
 void util::genericgaugepercent(int percent, std::string extra) {
-    util::genericgauge(percent*0.01, extra);
+    util::genericgauge(percent * 0.01, extra);
 }
 
 unsigned short int util::ConvertToBase16(unsigned short int value) {
