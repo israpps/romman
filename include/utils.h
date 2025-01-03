@@ -75,6 +75,7 @@ std::string Basename(std::string path);
 void genericgaugepercent(int percent, std::string extra);
 void genericgauge(float progress, std::string extra);
 int dirExists(std::string path);
+bool fileExists(std::string path);
 };  // namespace util
 
 #define DERROR(fmt, x...) fprintf(stderr, REDBOLD fmt DEFCOL, ##x);

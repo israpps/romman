@@ -127,7 +127,6 @@ int rom::open(std::string path) {
                         R++;
                     }
                     if (offset < image.size) {
-                        DWARN("WARNING: Image contains dead space at the end\n");
                         file.FileData = MALLOC(image.size - offset);
                         if (file.FileData != nullptr) {
                             memcpy(file.FileData, (void*) (image.data + offset), image.size - offset);
@@ -535,7 +534,7 @@ int rom::displayContents() {
                     break;
                 }
             }
-            chunk_name += is_empty ? " (empty)" : " (nonempty)";
+            chunk_name += is_empty ? "(empty)" : "(filled)";
         }
 
         int a = 0;
@@ -627,6 +626,10 @@ int rom::displayContents() {
 int rom::dumpContents(std::string file) {
     uint32_t TotalSize = 0;
     int ret = -ENOENT;
+    if (util::fileExists(file)) {
+        DERROR("\nFile already exists: %s \nAborting!\n", file.c_str());
+        return -EEXIST;
+    }
     for (size_t i = 0; i < files.size(); TotalSize += files[i].RomDir.size, i++) {
         if (!strncmp(file.c_str(), (const char*) files[i].RomDir.name, sizeof(files[i].RomDir.name))) {
             FILE* F;
@@ -650,24 +653,30 @@ int rom::dumpContents(std::string file) {
 
 int rom::dumpContents(void) {
     int ret = RET_OK;
-    util::genericgaugepercent(0, "RESET");
     std::string imgn = util::Basename(rom::img_filepath);  // base name of the image for building subdir dumppath
     std::string fol = "./ext_" + imgn + PATHSEPS;
+    if (!util::dirExists(fol)) {
+        DERROR("\nDirectory already exists: %s \nAborting!\n", fol.c_str());
+        return -EEXIST;
+    }
     std::string conf = imgn.substr(0, imgn.find_last_of('.')) + ".csv";
     FILE* Fconf;
     char* currentComment = nullptr;
     int i;
     size_t currentOffset = 0;  // Initialize the offset counter
     std::string romDirName;
+    if (util::fileExists(conf)) {
+        DERROR("\nFile already exists: %s \nAborting!\n", conf.c_str());
+        return -EEXIST;
+    }
+    MKDIR(fol.c_str());
     if ((Fconf = fopen(conf.c_str(), "wb")) == NULL) {
         DERROR("\nCan't create file: %s\n", conf.c_str());
         return -EIO;
     }
     fprintf(Fconf, "#Name,FixedOffset,Date,Version,Comment\n");
 
-    if (util::dirExists(fol))
-        MKDIR(fol.c_str());
-
+    util::genericgaugepercent(0, "RESET");
     for (i = -1; i == -1 || i < files.size(); i++) {
         romDirName = (i == -1) ? "ROMDIR" : (char*) files[i].RomDir.name;
         void* pdate = malloc(sizeof(rom::date));
@@ -725,6 +734,9 @@ int rom::dumpContents(void) {
                 dpath += chunk_prefix + std::to_string(currentOffset) + ".bin";
             }
             currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
+
+            if (util::fileExists(dpath))
+                dpath += "_" + std::to_string(currentOffset);
 
             FILE* F;
             if ((F = fopen(dpath.c_str(), "wb")) != NULL) {

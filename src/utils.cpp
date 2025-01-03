@@ -299,6 +299,11 @@ int util::dirExists(std::string path) {
         return ENOTDIR;
 }
 
+bool util::fileExists(std::string path) {
+    struct stat buffer;
+    return (stat(path.c_str(), &buffer) == 0);
+}
+
 void util::genericgauge(float progress, std::string extra) {
     int barWidth = 70;
 
