@@ -717,23 +717,25 @@ int rom::dumpContents(void) {
             fprintf(Fconf, "\n");
         }
 
+        util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
         if (i >= 0) {
             std::string dpath = fol;
+            bool is_empty = false;
             if (romDirName != "-")
                 dpath += romDirName;
             else {
-                std::string chunk_prefix = "chunk_";
-                bool is_empty = true;
+                is_empty = true;
                 for (size_t j = 0; j < files[i].RomDir.size; j++) {
                     if (((uint8_t*) files[i].FileData)[j] != 0) {
                         is_empty = false;
                         break;
                     }
                 }
-                chunk_prefix += is_empty ? "empty_" : "nonempty_";
-                dpath += chunk_prefix + std::to_string(currentOffset) + ".bin";
+                dpath += "chunk_" + std::to_string(currentOffset) + ".bin";
             }
             currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
+            if (is_empty)
+                continue;
 
             if (util::fileExists(dpath))
                 dpath += "_" + std::to_string(currentOffset);
@@ -757,7 +759,6 @@ int rom::dumpContents(void) {
                 break;
             }
         }
-        util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
     }
     fclose(Fconf);
     printf("\n");
