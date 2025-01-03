@@ -126,6 +126,20 @@ int rom::open(std::string path) {
                         ExtInfoOffset += R->ExtInfoEntrySize;
                         R++;
                     }
+                    if (offset < image.size) {
+                        DWARN("WARNING: Image contains dead space at the end\n");
+                        file.FileData = MALLOC(image.size - offset);
+                        if (file.FileData != nullptr) {
+                            memcpy(file.FileData, (void*) (image.data + offset), image.size - offset);
+                            memcpy(file.RomDir.name, "-", sizeof(file.RomDir.name));
+                            file.RomDir.size = image.size - offset;
+                            file.RomDir.ExtInfoEntrySize = 0;
+                            file.ExtInfoData = nullptr;
+                            files.push_back(file);
+                        } else {
+                            DERROR("Failed to allocate memory for dead space\n");
+                        }
+                    }
 
                 } else {
                     ret = -rerrno::ENORESET;
@@ -508,13 +522,24 @@ int rom::displayContents() {
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
      */
     for (size_t i = 0; i < files.size(); TotalSize += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF, i++) {
-        if (strncmp((const char*) files[i].RomDir.name, "-", sizeof(files[i].RomDir.name)) != 0)
+        std::string chunk_name(reinterpret_cast<char*>(files[i].RomDir.name));
+
+        if (chunk_name != "-")
             count++;
-        else
+        else {
             TotalGapSize += files[i].RomDir.size;
+            bool is_empty = true;
+            for (size_t j = 0; j < files[i].RomDir.size; j++) {
+                if (((uint8_t*) files[i].FileData)[j] != 0) {
+                    is_empty = false;
+                    break;
+                }
+            }
+            chunk_name += is_empty ? " (empty)" : " (nonempty)";
+        }
 
         int a = 0;
-        strncpy(filename, (const char*) files[i].RomDir.name, sizeof(filename) - 1);
+        strncpy(filename, chunk_name.c_str(), sizeof(filename));
         filename[sizeof(filename) - 1] = '\0';
         uint8_t* S = files[i].ExtInfoData;
         int x = files[i].RomDir.ExtInfoEntrySize;
@@ -595,7 +620,7 @@ int rom::displayContents() {
         printf("\n");
     }
 
-    printf("\n# Total size: %u bytes.\n# Total gap size: %u bytes.\n# File count: %u\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, TotalGapSize, count);
+    printf("\n# Total used size: %u bytes.\n# Total gap size: %u bytes.\n# Deadspace size: %u bytes.\n# File count: %u\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, TotalGapSize, files[files.size() - 1].RomDir.size, count);
     return ret;
 }
 
@@ -684,7 +709,6 @@ int rom::dumpContents(void) {
         }
 
         if (i >= 0) {
-            currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
             std::string dpath = fol;
             if (romDirName != "-")
                 dpath += romDirName;
@@ -700,6 +724,7 @@ int rom::dumpContents(void) {
                 chunk_prefix += is_empty ? "empty_" : "nonempty_";
                 dpath += chunk_prefix + std::to_string(currentOffset) + ".bin";
             }
+            currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
 
             FILE* F;
             if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
@@ -719,7 +744,6 @@ int rom::dumpContents(void) {
                 fclose(Fconf);
                 break;
             }
-            // }
         }
         util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
     }
