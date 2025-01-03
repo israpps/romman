@@ -684,27 +684,41 @@ int rom::dumpContents(void) {
 
         if (i >= 0) {
             currentOffset += (i == 0) ? image.fstart2 : (files[i].RomDir.size + 0xF) & ~0xF;
-            if (romDirName != "-") {
-                std::string dpath = fol + romDirName;
-                FILE* F;
-                if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
-                    if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
-                        DERROR("\nError writing to file %s\n", dpath.c_str());
+            std::string dpath = fol;
+            if (romDirName != "-")
+                dpath += romDirName;
+            else {
+                std::string chunk_prefix = "chunk_";
+                bool is_empty = true;
+                for (size_t j = 0; j < files[i].RomDir.size; j++) {
+                    if (((uint8_t*) files[i].FileData)[j] != 0) {
+                        is_empty = false;
+                        break;
                     }
-                    fclose(F);
-
-                    if (dh.fdate != 0) {
-                        uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
-                        util::SetFileModificationDate(dpath.c_str(), date);
-                    }
-                    // Update the current offset
-                } else {
-                    ret = -EIO;
-                    DERROR("\nCan't create file: %s\n", dpath.c_str());
-                    fclose(Fconf);
-                    break;
                 }
+                chunk_prefix += is_empty ? "empty_" : "nonempty_";
+                dpath += chunk_prefix + std::to_string(currentOffset) + ".bin";
             }
+
+            FILE* F;
+            if ((F = fopen(dpath.c_str(), "wb")) != NULL) {
+                if (fwrite(files[i].FileData, 1, files[i].RomDir.size, F) != files[i].RomDir.size) {
+                    DERROR("\nError writing to file %s\n", dpath.c_str());
+                }
+                fclose(F);
+
+                if (dh.fdate != 0) {
+                    uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
+                    util::SetFileModificationDate(dpath.c_str(), date);
+                }
+                // Update the current offset
+            } else {
+                ret = -EIO;
+                DERROR("\nCan't create file: %s\n", dpath.c_str());
+                fclose(Fconf);
+                break;
+            }
+            // }
         }
         util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
     }
