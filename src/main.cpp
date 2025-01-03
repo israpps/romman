@@ -217,6 +217,8 @@ int submain(int argc, char** argv) {
     if (!strcmp(argv[0], "-l") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             ret = ROMIMG.displayContents();
+        } else {
+            DERROR("Could not find ROMFS filesystem on image\n");
         }
     } else if (!strcmp(argv[0], "-x") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
@@ -228,6 +230,8 @@ int submain(int argc, char** argv) {
                         break;
                 }
             }
+        } else {
+            DERROR("Could not find ROMFS filesystem on image\n");
         }
         /* } else if (!strcmp(argv[0], "-c") && argc >= 2) {
             if (!(ret = ROMIMG.CreateBlank(argv[1], "", ""))) {
@@ -253,6 +257,8 @@ int submain(int argc, char** argv) {
 
             if (ret == RET_OK)
                 ret = ROMIMG.write(argv[1]);
+        } else {
+            DERROR("Could not find ROMFS filesystem on image\n");
         }
         /*     } else if (!strcmp(argv[0], "-s") && argc >= 2) {
                 ret = RunScript(argv[1]); */

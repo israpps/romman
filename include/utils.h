@@ -72,6 +72,7 @@ bool SetFileModificationDate(const char* path, uint32_t date);
 bool IsSonyRXModule(std::string path);
 int GetSonyRXModInfo(std::string path, char* description, uint32_t MaxLength, uint16_t* version);
 std::string Basename(std::string path);
+std::string Dirname(std::string path);
 void genericgaugepercent(int percent, std::string extra);
 void genericgauge(float progress, std::string extra);
 int dirExists(std::string path);

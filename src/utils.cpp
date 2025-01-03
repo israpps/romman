@@ -289,6 +289,19 @@ std::string util::Basename(std::string path) {
     }
 }
 
+std::string util::Dirname(std::string path) {
+    size_t x = 0;
+    if ((x = path.find_last_of("/"
+#if defined(_WIN32) || defined(WIN32)
+                               "\\"  // windows cmd supports both separators, linux doesnt. match those behaviors
+#endif
+                               )) != std::string::npos) {
+        return path.substr(0, x);
+    } else {
+        return ".";
+    }
+}
+
 int util::dirExists(std::string path) {
     struct stat info;
     if (stat(path.c_str(), &info) != 0)

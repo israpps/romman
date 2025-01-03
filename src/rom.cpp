@@ -84,10 +84,14 @@ int rom::open(std::string path) {
                     image.fstart_ptr = (uint8_t*) (image.data + image.fstart);
                     // util::hexdump(image.fstart_ptr, 64);
                     if (openFile("RESET", &FD) != RET_OK) {
-                        DERROR("Could not open RESET entry\n");
                         ret = -rerrno::ENORESET;
                         goto err;
                     }
+#ifndef DEBUG
+                    if (Gflags & VERBOSE)
+#endif
+                        printf("# Image filesystem begins at 0x%05x\n", image.fstart);
+
                     if (FD.size != image.fstart) {  // filesystem start should match the size of the RESET entry. that entry is representing bootstrap program
                         DERROR("-- Size of RESET does not match the start of ROMFS!\tImage is damaged\n");
                         ret = -rerrno::ERESETSIZEMTCH;
@@ -142,7 +146,6 @@ int rom::open(std::string path) {
 
                 } else {
                     ret = -rerrno::ENORESET;
-                    DERROR("Could not find ROMFS filesystem on image\n");
                 }
             } else
                 ret = -EIO;
@@ -167,10 +170,6 @@ int32_t rom::findFSBegin() {
             ((const char*) image.data)[i + 2] == 'S' &&
             ((const char*) image.data)[i + 3] == 'E' &&
             ((const char*) image.data)[i + 4] == 'T') {
-#ifndef DEBUG
-            if (Gflags & VERBOSE)
-#endif
-                printf("# Image filesystem begins at 0x%05x\n", i);
             image.fstart = i;
             break;
         }
@@ -653,18 +652,18 @@ int rom::dumpContents(std::string file) {
 
 int rom::dumpContents(void) {
     int ret = RET_OK;
-    std::string imgn = util::Basename(rom::img_filepath);  // base name of the image for building subdir dumppath
-    std::string fol = "./ext_" + imgn + PATHSEPS;
-    if (!util::dirExists(fol)) {
-        DERROR("\nDirectory already exists: %s \nAborting!\n", fol.c_str());
-        return -EEXIST;
-    }
-    std::string conf = imgn.substr(0, imgn.find_last_of('.')) + ".csv";
     FILE* Fconf;
     char* currentComment = nullptr;
     int i;
     size_t currentOffset = 0;  // Initialize the offset counter
     std::string romDirName;
+    std::string imgn = util::Basename(rom::img_filepath);  // base name of the image for building subdir dumppath
+    std::string fol = util::Dirname(rom::img_filepath) + "/ext_" + imgn + PATHSEPS;
+    if (!util::dirExists(fol)) {
+        DERROR("\nDirectory already exists: %s \nAborting!\n", fol.c_str());
+        return -EEXIST;
+    }
+    std::string conf = util::Dirname(rom::img_filepath) + PATHSEPS + imgn.substr(0, imgn.find_last_of('.')) + ".csv";
     if (util::fileExists(conf)) {
         DERROR("\nFile already exists: %s \nAborting!\n", conf.c_str());
         return -EEXIST;
@@ -751,6 +750,13 @@ int rom::dumpContents(void) {
                     uint32_t date = (dh.sdate.yrs << 16) | (dh.sdate.mon << 8) | dh.sdate.day;
                     util::SetFileModificationDate(dpath.c_str(), date);
                 }
+
+                // Check if the file is a ROM and call dumpContents recursively
+                rom subRom;
+                if (subRom.open(dpath) == RET_OK) {
+                    subRom.dumpContents();
+                }
+
                 // Update the current offset
             } else {
                 ret = -EIO;
