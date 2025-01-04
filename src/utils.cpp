@@ -72,6 +72,22 @@ uint32_t util::GetSystemDate() {
 #endif
 }
 
+uint32_t util::GetTime() {
+#if defined(_WIN32) || defined(WIN32)
+    SYSTEMTIME SystemTime;
+    GetSystemTime(&SystemTime);
+
+    return (((unsigned int) ConvertToBase16(SystemTime.wHour)) << 16 | ConvertToBase16(SystemTime.wMinute) << 8 | ConvertToBase16(SystemTime.wSecond));
+#else
+    time_t time_raw_format;
+    struct tm* ptr_time;
+
+    time(&time_raw_format);
+    ptr_time = localtime(&time_raw_format);
+    return (((unsigned int) ConvertToBase16(ptr_time->tm_hour)) << 16 | ConvertToBase16(ptr_time->tm_min) << 8 | ConvertToBase16(ptr_time->tm_sec));
+#endif
+}
+
 int32_t util::GetLocalhostName(char* buffer, uint32_t BufferSize) {
     int ret;
 #if defined(_WIN32) || defined(WIN32)
@@ -277,12 +293,24 @@ int util::GetSonyRXModInfo(std::string path, char* description, uint32_t MaxLeng
 }
 
 std::string util::Basename(std::string path) {
-    size_t x = 0;
-    if ((x = path.find_last_of("/"
+    // Remove trailing slashes
+    path.erase(path.find_last_not_of("/"
 #if defined(_WIN32) || defined(WIN32)
-                               "\\"  // windows cmd supports both separators, linux doesnt. match those behaviors
+                                     "\\"
 #endif
-                               )) != std::string::npos) {
+                                     ) +
+               1);
+
+    if (path.empty())
+        return ".";
+
+    size_t x = path.find_last_of(
+        "/"
+#if defined(_WIN32) || defined(WIN32)
+        "\\"
+#endif
+    );
+    if (x != std::string::npos) {
         return path.substr(x + 1);
     } else {
         return path;

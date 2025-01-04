@@ -64,6 +64,7 @@ extern memtrack_t MTR;
 namespace util {
 void hexdump(const void* data, uint32_t size, bool hdr = false);
 uint32_t GetSystemDate();
+uint32_t GetTime();
 int32_t GetLocalhostName(char* buffer, uint32_t BufferSize);
 int getCWD(char* buffer, uint32_t BufferSize);
 unsigned short int ConvertToBase16(unsigned short int value);

@@ -32,6 +32,7 @@ int rom::CreateBlank(std::string path, std::string confname, std::string folder)
     std::string filename = util::Basename(path);
 
     date = util::GetSystemDate();
+    time = util::GetTime();
 
     if (confname == "")
         confname = "conffile";
@@ -40,15 +41,18 @@ int rom::CreateBlank(std::string path, std::string confname, std::string folder)
         util::getCWD(cwd, sizeof(cwd));
         folder = cwd;
     }
-    comment_len = 31 + strlen(filename.c_str()) + strlen(confname.c_str()) + strlen(folder.c_str());
+    std::string conf_name = util::Basename(confname);
+    std::string folder_name = util::Basename(folder);
+    comment_len = 16 + 8 + 1 + 6 + 1 + strlen(conf_name.c_str()) + 1 + strlen(filename.c_str()) + 1 + strlen(folder_name.c_str()) + 4;
     DPRINTF("Comment length: %u\n", comment_len);
     rom::comment = (char*) MALLOC(comment_len);
 
-    snprintf(rom::comment, comment_len - 1, "%08x,%s,%s,%s",
+    snprintf(rom::comment, comment_len - 1, "%08x-%06x,%s,%s,%s",
              rom::date,
-             confname.c_str(),
+             rom::time,
+             conf_name.c_str(),
              filename.c_str(),
-             folder.c_str());
+             folder_name.c_str());
 
     rom::FileEntry ResetFile;
     memset(ResetFile.RomDir.name, 0, sizeof(ResetFile.RomDir.name));
@@ -134,7 +138,7 @@ int rom::open(std::string path) {
                         file.FileData = MALLOC(image.size - offset);
                         if (file.FileData != nullptr) {
                             memcpy(file.FileData, (void*) (image.data + offset), image.size - offset);
-                            memcpy(file.RomDir.name, "-", sizeof(file.RomDir.name));
+                            memcpy(file.RomDir.name, "-", 2);
                             file.RomDir.size = image.size - offset;
                             file.RomDir.ExtInfoEntrySize = 0;
                             file.ExtInfoData = nullptr;
@@ -515,6 +519,7 @@ int rom::displayContents() {
         "#--------------------------------------------------------------------\n");
     unsigned int count = 0;
     unsigned int TotalGapSize = 0;
+    unsigned int DeadSpace = 0;
 
     /**
      * @note ignore the reset entry size on the calculations because the Bootstrap program gets written to the begining of the image, before the ROMFS begins
@@ -534,6 +539,8 @@ int rom::displayContents() {
                 }
             }
             chunk_name += is_empty ? "(empty)" : "(filled)";
+            if (i == files.size() - 1)
+                DeadSpace = files[i].RomDir.size;
         }
 
         int a = 0;
@@ -618,7 +625,7 @@ int rom::displayContents() {
         printf("\n");
     }
 
-    printf("\n# Total used size: %u bytes.\n# Total gap size: %u bytes.\n# Deadspace size: %u bytes.\n# File count: %u\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, TotalGapSize, files[files.size() - 1].RomDir.size, count);
+    printf("\n# Total used size: %u bytes.\n# Total gap size: %u bytes.\n# Deadspace size: %u bytes.\n# File count: %u\n", TotalSize - ((files[files.size() - 1].RomDir.size + 0xF) & ~0xF) + files[files.size() - 1].RomDir.size, TotalGapSize, DeadSpace, count);
     return ret;
 }
 

@@ -17,6 +17,7 @@ class rom {
     std::string img_filepath;  // for operations that need the original image filename
     uint32_t NumFiles = 0x0;
     uint32_t date = 0x0;
+    uint32_t time = 0x0;
     union date_helper {
         uint32_t fdate;
         struct {
