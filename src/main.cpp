@@ -247,6 +247,10 @@ int submain(int argc, char** argv) {
         std::string confFilePath = argv[1];
         std::string folderPath = argv[2];
         std::string romFilePath = argv[3];
+        if (util::fileExists(romFilePath)) {
+            DERROR("\nOutput file already exists: %s \nAborting!\n", romFilePath.c_str());
+            return -EEXIST;
+        }
         ret = generateRomFromConf(confFilePath, romFilePath, folderPath);
     } else if (!strcmp(argv[0], "-a") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
