@@ -162,6 +162,7 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
 
 int main(int argc, char** argv) {
     int ret = RET_OK;
+    rom ROMIMG;
     if (argc < 2) {
         return help();
     } else {
@@ -184,6 +185,12 @@ int main(int argc, char** argv) {
                 opbegin = c;
             else if (!strcmp(argv[c], "-a"))
                 opbegin = c;
+            else {
+                if (!ROMIMG.open(argv[c]))
+                    return ROMIMG.displayContents();
+                else
+                    DERROR("Could not find ROMFS filesystem on image\n");
+            }
         }
         if (opbegin != -ENOENT)
             ret = submain(argc - opbegin, argv + opbegin);
@@ -396,6 +403,9 @@ int WriteImage(rom* ROM) {
 int help() {
     printf(
         "# Supported commands:\n"
+        "\t<image> or -l <image>\n"
+        "\t\tLists the contents of the image.\n"
+
         "\t-g <configuration file> <folder with files> <new_image>\n"
         "\t\tCreates a new ROM image with files from the specified folder based on the configuration file.\n"
         "\t\tYou can add files by adding lines to the configuration file in the following format:\n"
@@ -408,9 +418,6 @@ int help() {
         "\t\tIf no additional parameters are provided, it dumps the entire image to a subfolder named ext_<image> near the ROM.\n"
         "\t\tAdditionally, it also creates a CSV file with information about all extracted files. This file can be used later with the -g command.\n"
         "\t\tAlso, if some of the files inside the ROM are ROMs themselves, the app will also extract their contents into a subfolder.\n"
-
-        "\t-l <image>\n"
-        "\t\tLists the contents of the image.\n"
 
         "\t-a <image> <files...>\n"
         "\t\tAdds file(s) to an existing image. A fast way to add a file to an image without any advanced tweaks.\n");
