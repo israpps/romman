@@ -65,7 +65,8 @@ class rom {
    public:
     rom();
     ~rom();
-    int CreateBlank(std::string filename, std::string confname, std::string folder);
+    // int CreateBlank(std::string filename, std::string confname, std::string folder);
+    int CreateBlank(std::string filename);
     int open(std::string path);
     int write(std::string file);
     int write();

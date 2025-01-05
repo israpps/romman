@@ -64,7 +64,8 @@ std::vector<ConfFileEntry> parseConfFile(const std::string& confFilePath) {
 
 int generateRomFromConf(const std::string& confFilePath, const std::string& romFilePath, const std::string& folderPath) {
     rom ROMIMG;
-    int ret = ROMIMG.CreateBlank(romFilePath, util::Basename(confFilePath), folderPath);
+    // int ret = ROMIMG.CreateBlank(romFilePath, util::Basename(confFilePath), folderPath);
+    int ret = ROMIMG.CreateBlank(romFilePath);
     if (ret != RET_OK)
         return ret;
 
@@ -162,10 +163,7 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
 int main(int argc, char** argv) {
     int ret = RET_OK;
     if (argc < 2) {
-        DERROR("# No argumments provided\n");
-        printf("# %s " DGREY "[flags]" DEFCOL " <operation> file(s)\n", argv[0]);
-        printf("# use '%s -h' to see available commands\n", argv[0]);
-        return 1;
+        return help();
     } else {
         int opbegin = -ENOENT;  // where the operation flag was found
         for (int c = 1; c < argc; c++) {
@@ -176,8 +174,6 @@ int main(int argc, char** argv) {
                 return help();
             } else if (!strcmp(argv[c], "--verbose") && VERB())
                 Gflags |= VERBOSE;  // silent has priority
-            // program operations
-            //  else if (!strcmp(argv[c], "-c")) opbegin = c;
             else if (!strcmp(argv[c], "-g"))
                 opbegin = c;
             else if (!strcmp(argv[c], "-d"))
@@ -188,7 +184,6 @@ int main(int argc, char** argv) {
                 opbegin = c;
             else if (!strcmp(argv[c], "-a"))
                 opbegin = c;
-            // else if (!strcmp(argv[c], "-s")) opbegin = c;
         }
         if (opbegin != -ENOENT)
             ret = submain(argc - opbegin, argv + opbegin);
@@ -244,10 +239,9 @@ int submain(int argc, char** argv) {
     } else if (!strcmp(argv[0], "-a") && argc >= 2) {
         if (!ROMIMG.open(argv[1])) {
             for (int i = 2; i < argc; i++) {
-                if ((ret = ROMIMG.addFile(argv[i])) != RET_OK)
+                if ((ret = ROMIMG.addFile(argv[i], false, true, 0)) != RET_OK)
                     break;
             }
-
             if (ret == RET_OK)
                 ret = ROMIMG.write(argv[1]);
         } else {
@@ -411,12 +405,14 @@ int help() {
 
         "\t-x <image> [<files...>]\n"
         "\t\tExtracts the contents of the ROM image.\n"
-        "\t\tIf no additional parameters are provided, it dumps the entire image to a subfolder named ext_<image>.\n"
+        "\t\tIf no additional parameters are provided, it dumps the entire image to a subfolder named ext_<image> near the ROM.\n"
+        "\t\tAdditionally, it also creates a CSV file with information about all extracted files. This file can be used later with the -g command.\n"
+        "\t\tAlso, if some of the files inside the ROM are ROMs themselves, the app will also extract their contents into a subfolder.\n"
 
         "\t-l <image>\n"
         "\t\tLists the contents of the image.\n"
 
         "\t-a <image> <files...>\n"
-        "\t\tAdds file(s) to an existing image.\n"
+        "\t\tAdds file(s) to an existing image. A fast way to add a file to an image without any advanced tweaks.\n");
     return 1;
 }

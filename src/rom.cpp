@@ -25,14 +25,14 @@ rom::~rom() {
     files.clear();
 }
 
-int rom::CreateBlank(std::string path, std::string confname, std::string folder) {
+// int rom::CreateBlank(std::string path, std::string confname, std::string folder) {
+int rom::CreateBlank(std::string path) {
     uint32_t comment_len = 0;
     ExtInfoFieldEntry* ExtInfoEntry;
     rom::img_filepath = path;
-    std::string filename = util::Basename(path);
 
-    date = util::GetSystemDate();
-    time = util::GetTime();
+    /*
+    std::string filename = util::Basename(path);
 
     if (confname == "")
         confname = "conffile";
@@ -43,16 +43,24 @@ int rom::CreateBlank(std::string path, std::string confname, std::string folder)
     }
     std::string conf_name = util::Basename(confname);
     std::string folder_name = util::Basename(folder);
-    comment_len = 16 + 8 + 1 + 6 + 1 + strlen(conf_name.c_str()) + 1 + strlen(filename.c_str()) + 1 + strlen(folder_name.c_str()) + 4;
+    */
+
+    date = util::GetSystemDate();
+    time = util::GetTime();
+
+    // comment_len = 16 + 8 + 1 + 6 + 1 + strlen(conf_name.c_str()) + 1 + strlen(filename.c_str()) + 1 + strlen(folder_name.c_str()) + 4;
+    comment_len = 16 + 8 + 1 + 6 + 1 + 4;
     DPRINTF("Comment length: %u\n", comment_len);
     rom::comment = (char*) MALLOC(comment_len);
-
+    /*
     snprintf(rom::comment, comment_len - 1, "%08x-%06x,%s,%s,%s",
              rom::date,
              rom::time,
              conf_name.c_str(),
              filename.c_str(),
              folder_name.c_str());
+    */
+    snprintf(rom::comment, comment_len - 1, "%08x-%06x,", rom::date, rom::time);
 
     rom::FileEntry ResetFile;
     memset(ResetFile.RomDir.name, 0, sizeof(ResetFile.RomDir.name));
