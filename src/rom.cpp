@@ -546,6 +546,14 @@ int rom::displayContents() {
                     break;
                 }
             }
+            if !(is_empty) {
+                for (size_t j = 0; j < files[i].RomDir.size; j++) {
+                    if (((uint8_t*) files[i].FileData)[j] != 0xFF) {
+                        is_empty = false;
+                        break;
+                    }
+                }
+            }
             chunk_name += is_empty ? "(empty)" : "(filled)";
             if (i == files.size() - 1)
                 DeadSpace = files[i].RomDir.size;
@@ -743,6 +751,14 @@ int rom::dumpContents(void) {
                     if (((uint8_t*) files[i].FileData)[j] != 0) {
                         is_empty = false;
                         break;
+                    }
+                }
+                if !(is_empty) {
+                    for (size_t j = 0; j < files[i].RomDir.size; j++) {
+                        if (((uint8_t*) files[i].FileData)[j] != 0xFF) {
+                            is_empty = false;
+                            break;
+                        }
                     }
                 }
                 dpath += "chunk_" + std::to_string(currentOffset) + ".bin";
