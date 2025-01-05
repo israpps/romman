@@ -18,19 +18,11 @@ uint32_t Gflags = 0x0;
 int submain(int argc, char** argv);
 int help();
 
-struct ConfFileEntry {
-    std::string name;
-    uint32_t offset;
-    bool isFixed;
-    std::string date;
-    std::string version;
-    std::string comment;
-};
-
 std::vector<ConfFileEntry> parseConfFile(const std::string& confFilePath) {
     std::vector<ConfFileEntry> entries;
     std::ifstream confFile(confFilePath);
     std::string line;
+    std::string symlink = "";
 
     while (std::getline(confFile, line)) {
         if (line.empty() || line[0] == '#')
@@ -46,16 +38,17 @@ std::vector<ConfFileEntry> parseConfFile(const std::string& confFilePath) {
         std::getline(ss, date, ',');
         std::getline(ss, version, ',');
         std::getline(ss, comment, ',');
+        if (!std::getline(ss, symlink, ','))
+            continue;
         if (name == "ROMDIR")
             continue;
 
         if (!offsetStr.empty() && offsetStr != "-") {
             offset = std::stoul(offsetStr);
             // DPRINTF("offset: %u\n\n\n", offset);
-            isFixed = true;
         }
 
-        entries.push_back({name, offset, isFixed, date, version, comment});
+        entries.push_back({name, offset, isFixed, date, version, comment, symlink});
         // DPRINTF("name: %s, offset: %u, isFixed: %d, date: %s, version: %s, comment: %s\n", name.c_str(), offset, isFixed, date.c_str(), version.c_str(), comment.c_str());
     }
 
@@ -79,7 +72,11 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
     // DPRINTF("rom comment length rounded: %u\n", CommentLengthRounded);
     FILE* F;
     for (const auto& entry : entries) {
-        std::string filePath = folderPath + "/" + entry.name;
+        std::string filePath = folderPath + "/";
+        if (entry.symlink != "")
+            filePath += entry.symlink;
+        else
+            filePath + = entry.name;
         if ((F = fopen(filePath.c_str(), "rb")) != NULL) {
             fclose(F);
             if (util::IsSonyRXModule(filePath)) {
@@ -110,7 +107,12 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
     TotalExtInfoSize = (TotalExtInfoSize + 0xF) & ~0xF;  // Align
     unsigned int currentOffset = 0;
     for (const auto& entry : entries) {
-        std::string filePath = folderPath + "/" + entry.name;
+        std::string filePath = folderPath + "/";
+        if (entry.symlink != "")
+            filePath += entry.symlink;
+        else
+            filePath += entry.name;
+
         if ((F = fopen(filePath.c_str(), "rb")) == NULL) {
             DERROR("Could not open file %s\n", filePath.c_str());
             return -ENOENT;
@@ -147,6 +149,29 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
                 ret = -EINVAL;
                 break;
             }
+        } else if (entry.symlink != "") {
+            unsigned int negative_size = 0;
+            negative_size = 0xFFFFFFFF - currentOffset;
+            negative_size += 1;
+            for (const auto& e : entries) {
+                if (e.name == entry.symlink) {
+                    if (e.offset > currentOffset) {
+                        DERROR("Invalid offset for file %s\n", entry.name.c_str());
+                        DERROR("currentOffset: %u, entry.offset: %u\n", currentOffset, e.offset);
+                        ret = -EINVAL;
+                        break;
+                    }
+                    negative_size += e.offset;
+                    break;
+                }
+            }
+
+            ret = ROMIMG.addDummy("-", negative_size);
+            ret = ROMIMG.addDummy(entry.name, FileSize);
+            DPRINTF("negative_size: %u\n", negative_size);
+            if (ret != RET_OK)
+                break;
+            currentOffset += (FileSize + 0xF) & ~0xF;
         } else {
             ret = ROMIMG.addFile(filePath, false, isDate, version);
             if (ret != RET_OK)

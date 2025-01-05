@@ -435,6 +435,43 @@ int rom::addDummy(std::string name, uint32_t dummysize, int imagepos) {
     return RET_OK;
 }
 
+int rom::addSymlink(std::string name, uint32_t size, uint32_t current_offset, uint32_t original_offset) {
+    FileEntry file;
+
+    // overflow
+    unsigned int negative_size = 0;
+    negative_size = 0xFFFFFFFF - current_offset;
+    negative_size += 1;
+    negative_size += original_offset;
+
+    memset(&file, 0, sizeof(FileEntry));
+    file.RomDir.name = "-";  // sony always used "-"
+    file.RomDir.ExtInfoEntrySize = 0;
+    file.RomDir.size = negative_size;
+    file.FileData = NULL;
+    files.push_back(file);
+
+    memset(&file, 0, sizeof(FileEntry));
+    strncpy((char*) file.RomDir.name, name.c_str(), sizeof(file.RomDir.name));
+
+    file.FileData = NULL;
+    files.push_back(file);
+
+    // get back from overflow hack
+    negative_size = original_offset + size;
+    negative_size = (negative_size + 0xF) & ~0xF;
+    negative_size = current_offset - negative_size;
+
+    memset(&file, 0, sizeof(FileEntry));
+    file.RomDir.name = "-";  // sony always used "-"
+    file.RomDir.ExtInfoEntrySize = 0;
+    file.RomDir.size = negative_size;
+    file.FileData = NULL;
+    files.push_back(file);
+
+    return RET_OK;
+}
+
 int rom::AddExtInfoStat(FileEntry* file, uint8_t type, void* data, uint8_t nbytes) {
     int result;
     struct ExtInfoFieldEntry* ExtInfo;

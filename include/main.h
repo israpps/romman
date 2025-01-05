@@ -8,4 +8,14 @@ enum flags {
 
 extern uint32_t Gflags;
 
+struct ConfFileEntry {
+    std::string name;
+    uint32_t offset;
+    bool isFixed;
+    std::string date;
+    std::string version;
+    std::string comment;
+    std::string symlink;
+};
+
 #endif
