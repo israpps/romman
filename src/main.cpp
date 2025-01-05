@@ -16,7 +16,6 @@ const std::string buildate = __DATE__ " " __TIME__;
 uint32_t Gflags = 0x0;
 #define VERB() !(Gflags & SILENT)
 int submain(int argc, char** argv);
-int RunScript(std::string script);
 int help();
 
 struct ConfFileEntry {
@@ -233,16 +232,6 @@ int submain(int argc, char** argv) {
         } else {
             DERROR("Could not find ROMFS filesystem on image\n");
         }
-        /* } else if (!strcmp(argv[0], "-c") && argc >= 2) {
-            if (!(ret = ROMIMG.CreateBlank(argv[1], "", ""))) {
-                for (int i = 2; i < argc; i++) {
-                    if ((ret = ROMIMG.addFile(argv[i])) != RET_OK)
-                        break;
-                }
-
-                if (ret == RET_OK)
-                    ret = ROMIMG.write(argv[1]);
-            } */
     } else if (!strcmp(argv[0], "-g") && argc >= 4) {
         std::string confFilePath = argv[1];
         std::string folderPath = argv[2];
@@ -264,8 +253,6 @@ int submain(int argc, char** argv) {
         } else {
             DERROR("Could not find ROMFS filesystem on image\n");
         }
-        /*     } else if (!strcmp(argv[0], "-s") && argc >= 2) {
-                ret = RunScript(argv[1]); */
     }
 
 err:
@@ -412,82 +399,6 @@ int WriteImage(rom* ROM) {
     return RET_OK;
 }
 
-int RunScript(std::string script) {
-    rom ROMIMG;
-    std::cout << "# Running Script '" << script << "'\n";
-    std::regex sort("SortBySize\\(\\)");
-    std::regex emptyline("$\\s+^");
-    std::regex cimg("CreateImage\\(\"(.*)\"\\)");
-    std::regex wimg("WriteImage\\(\\)");
-    std::regex addfil("AddFile\\(\"(.*)\"\\)");
-    std::regex dfixfil("AddFixedFile\\(\"(.*)\",\\s+([0-9a-fA-F]+)\\)");
-    std::regex dfixfilhex("AddFixedFile\\(\"(.*)\",\\s+(0[xX][0-9a-fA-F]+)\\)");
-    std::smatch match;
-
-    FFiles.clear();
-    CFiles.clear();
-    int ss = 0,
-        dline = 0,
-        ret = RET_OK;
-    std::string imagename = "";
-    std::ifstream S(script);
-    if (S.is_open()) {
-        std::string line;
-        while (getline(S, line)) {
-            dline++;
-            if (line.substr(0, 1) == "#")
-                continue;
-            else if (std::regex_search(line, match, cimg) && imagename == "") {
-                if (VERB())
-                    std::cout << GRNBOLD "> Create image file: '" << match[1] << DEFCOL "'\n";
-                imagename = match[1];
-                ret = ROMIMG.CreateBlank(imagename, "", "");
-            } else if (std::regex_search(line, match, dfixfil)) {
-                CHKRESET(match[1]);
-                int e = std::stoi(match[2]);
-                if (VERB())
-                    std::cout << YELBOLD "> Adding File '" << match[1] << "' at offset " << e << " (0x" << HEX(e) << ")" << DEFCOL "\n";
-                FFiles.push_back(fixfile(match[1], e));
-                ret = CHKFILE(match[1]);
-            } else if (std::regex_search(line, match, dfixfilhex)) {
-                CHKRESET(match[1]);
-                int e = std::stoi(match[2], 0, 16);
-                if (VERB())
-                    std::cout << YELBOLD "> Adding File '" << match[1] << "' at offset " << e << " (0x" << HEX(e) << ")" << DEFCOL "\n";
-                FFiles.push_back(fixfile(match[1], e));
-                ret = CHKFILE(match[1]);
-            } else if (std::regex_search(line, match, addfil)) {
-                CHKRESET(match[1]);
-                if (VERB())
-                    std::cout << "> Adding File '" << match[1] << "'\n";
-                CFiles.push_back(fixfile(match[1], 0));
-                ret = CHKFILE(match[1]);
-            } else if (std::regex_search(line, match, wimg)) {
-                if (VERB())
-                    std::cout << GRNBOLD "> Writing Image" DEFCOL "\n";
-                ret = WriteImage(&ROMIMG);
-            } else if (std::regex_search(line, match, sort)) {
-                if (VERB())
-                    std::cout << "> Sorting install files by size\n";
-                std::sort(CFiles.begin(), CFiles.end(), fixfile::CompareSize);
-            } else if (line != "" && !std::regex_search(line, match, emptyline)) {
-                printf(REDBOLD "Unknown sequence found at " DEFCOL "%s:%d\n" WHITES "'%s'" DEFCOL "\n",
-                       script.c_str(), dline, line.c_str());
-                break;
-            }
-            if (ret != RET_OK) {
-                DERROR("# ERROR!  line:%d, err:%d, errno:\n\t%s", dline, ret, strerror(-ret));
-                break;
-            }
-        }
-
-    } else
-        ret = -EIO;
-    if (ret == RET_OK) {
-    }
-    return ret;
-}
-
 int help() {
     printf(
         "# Supported commands:\n"
@@ -507,12 +418,5 @@ int help() {
 
         "\t-a <image> <files...>\n"
         "\t\tAdds file(s) to an existing image.\n"
-
-        "\t(disabled) -c <new_image> <files...>\n"
-        "\t\tCreates a new ROM image with the specified files.\n"
-
-        "\t(disabled) -s <file>\n"
-        "\t\tRuns a ROM manager script.\n"
-        "\t\tFor more information about the script language, visit " WHITES "github.com/israpps/romman/blob/main/scriptlang.md" DEFCOL "\n");
     return 1;
 }
