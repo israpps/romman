@@ -168,6 +168,11 @@ int main(int argc, char** argv) {
 #endif
     if (argc < 2) {
         return help();
+    } else if (argc == 2) {
+        if (!ROMIMG.open(argv[1]))
+            return ROMIMG.displayContents();
+        else
+            DERROR("Could not find ROMFS filesystem on image\n");
     } else {
         int opbegin = -ENOENT;  // where the operation flag was found
         for (int c = 1; c < argc; c++) {
@@ -188,12 +193,6 @@ int main(int argc, char** argv) {
                 opbegin = c;
             else if (!strcmp(argv[c], "-a"))
                 opbegin = c;
-            else {
-                if (!ROMIMG.open(argv[c]))
-                    return ROMIMG.displayContents();
-                else
-                    DERROR("Could not find ROMFS filesystem on image\n");
-            }
         }
         if (opbegin != -ENOENT)
             ret = submain(argc - opbegin, argv + opbegin);
