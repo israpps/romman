@@ -163,6 +163,9 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
 int main(int argc, char** argv) {
     int ret = RET_OK;
     rom ROMIMG;
+#if defined(_WIN32) || defined(WIN32)
+    enableANSIColors();
+#endif
     if (argc < 2) {
         return help();
     } else {

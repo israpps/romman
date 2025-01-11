@@ -9,6 +9,26 @@
 #if defined(_WIN32) || defined(WIN32)
 #include <windows.h>
 #include <windef.h>
+
+void enableANSIColors() {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE) {
+        std::cerr << "Error: Unable to get handle to stdout." << std::endl;
+        return;
+    }
+
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(hOut, &dwMode)) {
+        std::cerr << "Error: Unable to get console mode." << std::endl;
+        return;
+    }
+
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (!SetConsoleMode(hOut, dwMode)) {
+        std::cerr << "Error: Unable to set console mode." << std::endl;
+        return;
+    }
+}
 #endif
 
 memtrack_t MTR;  // rudimentary track down memory leaks?

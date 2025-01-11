@@ -7,30 +7,23 @@
 
 #define RET_OK 0
 
+#define SANEPATHSEP '/'
+#define SANEPATHSEPS "/"
 #if defined(_WIN32) || defined(WIN32)
 #include <io.h>
+#include <windows.h>
 #define MKDIR(dir) mkdir(dir);
 #define PATHSEP '\\'
 #define PATHSEPS "\\"
+
+// Enable ANSI escape codes in Windows (Windows 10 and above)
+void enableANSIColors();
+
 #else
 #define MKDIR(dir) mkdir(dir, 0755);
 #define PATHSEP '/'
 #define PATHSEPS "/"
 #endif
-#define SANEPATHSEP '/'
-#define SANEPATHSEPS "/"
-
-#if defined(_WIN32) || defined(WIN32)
-#define REDBOLD ""
-#define YELBOLD ""
-#define GRNBOLD ""
-#define RED ""
-#define DGREY ""
-#define GREEN ""
-#define YELLOW ""
-#define WHITES ""
-#define DEFCOL ""
-#else
 #define REDBOLD "\033[1;31m"
 #define YELBOLD "\033[1;33m"
 #define GRNBOLD "\033[1;32m"
@@ -40,7 +33,6 @@
 #define YELLOW "\033[0;33m"
 #define WHITES "\033[1;97m"
 #define DEFCOL "\033[0m"
-#endif
 
 struct memtrack_t {
     uint32_t fc = 0x0;  // free() count
