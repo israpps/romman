@@ -17,7 +17,7 @@ add_executable(romman
 )
 
 if(NOT APPLE)
-    target_link_libraries(romman -static -static-libgcc -static-libstdc++)
+  target_link_libraries(romman -static -static-libgcc -static-libstdc++)
 else()
-    message(WARNING "Static linking is not supported on macOS. Skipping -static flags.")
+  message(WARNING "Static linking is not supported on macOS. Skipping -static flags.")
 endif()

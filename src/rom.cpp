@@ -696,7 +696,7 @@ int rom::dumpContents(void) {
         DERROR("\nCan't create file: %s\n", conf.c_str());
         return -EIO;
     }
-    fprintf(Fconf, "#Name,FixedOffset,Date,Version,Comment\n");
+    fprintf(Fconf, "#Name,FixedOffset,Date,Version,Comment,Size,CRC32\n");
 
     util::genericgaugepercent(0, "RESET");
     for (i = -1; i == -1 || i < files.size(); i++) {
@@ -712,7 +712,14 @@ int rom::dumpContents(void) {
         date_helper dh = {0};
         uint16_t version;
 
-        if (romDirName != "-") {
+        if (romDirName == "ROMDIR") {
+            if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**) &currentComment, 0) >= 0) {
+                fprintf(Fconf, "# %s", currentComment);
+                FREE(currentComment);
+            }
+            fprintf(Fconf, "\n");
+
+        } else if (romDirName != "-") {
             fprintf(Fconf, "%s,", romDirName.c_str());
             // fprintf(Fconf, "0x%06x  ", currentOffset);
             if (GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_FIXED, (void**) &temp, sizeof(uint16_t)) >= 0) {
@@ -736,7 +743,12 @@ int rom::dumpContents(void) {
                 fprintf(Fconf, "%s", currentComment);
                 FREE(currentComment);
             }
-            fprintf(Fconf, "\n");
+            // Calculate CRC32
+            uint32_t crc32 = 0;
+            if (files[i].FileData != nullptr && files[i].RomDir.size > 0)
+                crc32 = util::crc32(files[i].FileData, files[i].RomDir.size);
+
+            fprintf(Fconf, ",%zu,%08x\n", files[i].RomDir.size, crc32);
         }
 
         util::genericgaugepercent(((i + 1) * 100) / (float) files.size(), romDirName.c_str());
