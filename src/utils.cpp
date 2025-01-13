@@ -31,8 +31,6 @@ void enableANSIColors() {
 }
 #endif
 
-
-
 // Precomputed CRC32 lookup table
 static const uint32_t crc32_table[256] = {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
@@ -79,6 +77,17 @@ uint32_t util::crc32(const void* data, size_t length) {
     }
 
     return crc ^ 0xFFFFFFFF;
+}
+
+uint16_t util::swapEndian16(uint16_t value) {
+    return (value >> 8) | (value << 8);
+}
+
+uint32_t util::swapEndian32(uint32_t value) {
+    return ((value >> 24) & 0x000000FF) |
+           ((value >> 8) & 0x0000FF00) |
+           ((value << 8) & 0x00FF0000) |
+           ((value << 24) & 0xFF000000);
 }
 
 memtrack_t MTR;  // rudimentary track down memory leaks?

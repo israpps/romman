@@ -55,6 +55,8 @@ extern memtrack_t MTR;
 
 namespace util {
 uint32_t crc32(const void* data, size_t length);
+uint16_t swapEndian16(uint16_t value);
+uint32_t swapEndian32(uint32_t value);
 void hexdump(const void* data, uint32_t size, bool hdr = false);
 uint32_t GetSystemDate();
 uint32_t GetTime();

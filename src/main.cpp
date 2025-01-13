@@ -124,7 +124,7 @@ int generateRomFromConf(const std::string& confFilePath, const std::string& romF
         if (!entry.version.empty())
             version = std::stoul(entry.version, nullptr, 16);
 
-        if (strcmp(entry.name.c_str(), "RESET") == 0) {
+        if (strncmp(entry.name.c_str(), "RESET", 5) == 0 && entry.offset == 0) {
             ret = ROMIMG.addFile(filePath, true, isDate, version);
             if (ret != RET_OK)
                 break;
@@ -290,10 +290,10 @@ class fixfile {
 
 #define HEX(x) std::hex << x << std::dec
 #define CHKFILE(x) (GetFileSize(x) < 0) ? -ENOENT : RET_OK
-#define CHKRESET(x)                       \
-    if (util::Basename(x) == "RESET") {   \
-        ROMIMG.addFile(x, true, true, 0); \
-        continue;                         \
+#define CHKRESET(x)                                  \
+    if (util::Basename(x).substr(0, 5) == "RESET") { \
+        ROMIMG.addFile(x, true, true, 0);            \
+        continue;                                    \
     }
 
 std::vector<fixfile> FFiles;

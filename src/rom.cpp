@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdlib.h>  // linux: without this, snprintf always complains of '-Wformat-truncation'
 
+bool isBigEndian = false;
+
 rom::rom() {
 }
 
@@ -95,7 +97,12 @@ int rom::open(std::string path) {
                 if (findFSBegin() >= 0) {
                     image.fstart_ptr = (uint8_t*) (image.data + image.fstart);
                     // util::hexdump(image.fstart_ptr, 64);
-                    if (openFile("RESET", &FD) != RET_OK) {
+                    DPRINTF("first module name: %s\n", (char*) image.fstart_ptr);
+                    if (strncmp((char*) image.fstart_ptr, "RESETB", 6) == 0)
+                        isBigEndian = true;
+
+                    if (openFile(((char*) image.fstart_ptr), &FD) != RET_OK) {
+                        // if (openFile("RESET", &FD) != RET_OK) {
                         ret = -rerrno::ENORESET;
                         goto err;
                     }
@@ -104,27 +111,60 @@ int rom::open(std::string path) {
 #endif
                         printf("# Image filesystem begins at 0x%05x\n", image.fstart);
 
+                    // DPRINTF("FD.size: %u, FD.ExtInfoOffset: %u, FD.ExtInfoEntrySize: %u\n", FD.size, FD.ExtInfoOffset, FD.ExtInfoEntrySize);
                     if (FD.size != image.fstart) {  // filesystem start should match the size of the RESET entry. that entry is representing bootstrap program
                         DERROR("-- Size of RESET does not match the start of ROMFS!\tImage is damaged\n");
                         ret = -rerrno::ERESETSIZEMTCH;
                         goto err;
                     }
+                    DPRINTF("RESET size: %u\n", FD.size);
+
                     pdate = &date;
-                    GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date));
+                    int extInfoStatResult = GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_DATE, &pdate, sizeof(rom::date));
+                    DPRINTF("GetExtInfoStat result: %d\n", extInfoStatResult);
+                    if (extInfoStatResult < 0) {
+                        DERROR("GetExtInfoStat failed\n");
+                        ret = extInfoStatResult;
+                        goto err;
+                    }
+
+                    DPRINTF("Date: %08x\n", date);
+
                     if (openFile("ROMDIR", &FD) != 0) {
-                        DERROR(" Unable to locate ROMDIR!\n");
+                        DERROR("Unable to locate ROMDIR!\n");
                         ret = -rerrno::ENOROMDIR;
                         goto err;
                     }
 
+                    DPRINTF("ROMDIR size: %u\n", FD.size);
+
                     comment = nullptr;
                     GetExtInfoStat(&FD, EXTINFO_FIELD_TYPE_COMMENT, (void**) &comment, 0);
                     DirEntry* R = (DirEntry*) image.fstart_ptr;
+                    DirEntry* rawR = (DirEntry*) image.fstart_ptr;  // Pointer to the original data
+                    rom::DirEntry tempR = *rawR;
+                    if (isBigEndian) {
+                        // Swap the bytes of the fields in the temporary copy
+                        tempR.ExtInfoEntrySize = util::swapEndian16(rawR->ExtInfoEntrySize);
+                        tempR.size = util::swapEndian32(rawR->size);
+                    }
+
+                    // Use tempE as if it's the original E
+                    R = &tempR;
                     unsigned int offset = 0;
                     uint32_t ExtInfoOffset = 0;
                     GetExtInfoOffset(&FD);
                     FileEntry file;
                     while (R->name[0] != '\0') {
+                        tempR = *rawR;
+                        if (isBigEndian) {
+                            // Swap the bytes of the fields in the temporary copy
+                            tempR.ExtInfoEntrySize = util::swapEndian16(rawR->ExtInfoEntrySize);
+                            tempR.size = util::swapEndian32(rawR->size);
+                        }
+
+                        // Use tempE as if it's the original E
+                        R = &tempR;
                         if (strncmp((const char*) R->name, "ROMDIR", sizeof(R->name)) != 0 &&
                             strncmp((const char*) R->name, "EXTINFO", sizeof(R->name)) != 0) {
                             memset(&file, 0x0, sizeof(rom::FileEntry));
@@ -132,15 +172,25 @@ int rom::open(std::string path) {
 
                             memcpy(&file.RomDir, R, sizeof(DirEntry));
                             file.ExtInfoData = (uint8_t*) MALLOC(R->ExtInfoEntrySize);
-                            memcpy(file.ExtInfoData, (void*) (image.data + FD.ExtInfoOffset + ExtInfoOffset), R->ExtInfoEntrySize);
+
+                            // Copy the raw data from the image
+                            uint8_t* rawData = (uint8_t*) (image.data + FD.ExtInfoOffset + ExtInfoOffset);
+                            memcpy(file.ExtInfoData, rawData, R->ExtInfoEntrySize);
+
+                            // Perform byte swapping only on the first 4 bytes if required (e.g., for big-endian systems)
+                            if (isBigEndian && R->ExtInfoEntrySize >= 4) {
+                                uint32_t* first4Bytes = (uint32_t*) file.ExtInfoData;
+                                *first4Bytes = util::swapEndian32(*first4Bytes);  // Swap the first 4 bytes
+                            }
                             file.FileData = MALLOC(R->size);
                             memcpy(file.FileData, (void*) (image.data + offset), R->size);
                             files.push_back(file);
                         }
+                        DPRINTF("file name: %s, file.size: %x, file.ExtInfoEntrySize: %x, file.ExtInfoData: %p\n", R->name, R->size, R->ExtInfoEntrySize, file.ExtInfoData);
 
                         offset += (R->size + 0xF) & ~0xF;
                         ExtInfoOffset += R->ExtInfoEntrySize;
-                        R++;
+                        rawR++;
                     }
                     if (offset < image.size) {
                         file.FileData = MALLOC(image.size - offset);
@@ -194,22 +244,53 @@ int rom::openFile(std::string file, filefd* FD) {
     memset(FD, 0, sizeof(filefd));
     int result;
 
-    E = (rom::DirEntry*) image.fstart_ptr;
+    rom::DirEntry* rawE = (rom::DirEntry*) image.fstart_ptr;  // Pointer to the original data
+    rom::DirEntry tempE = *rawE;
+    if (isBigEndian) {
+        // Swap the bytes of the fields in the temporary copy
+        tempE.ExtInfoEntrySize = util::swapEndian16(rawE->ExtInfoEntrySize);
+        tempE.size = util::swapEndian32(rawE->size);
+    }
+
+    // Use tempE as if it's the original E
+    E = &tempE;
+
+    DPRINTF("1 E->name: %s\n", E->name);
+    DPRINTF("1 E->ExtInfoEntrySize: %x\n", E->ExtInfoEntrySize);
+    DPRINTF("1 E->size: %u\n", E->size);
     result = -ENOENT;
+    DPRINTF("Before GetExtInfoOffset: FD->ExtInfoOffset: %u\n", FD->ExtInfoOffset);
     if (GetExtInfoOffset(FD) == 0) {
+        DPRINTF("After GetExtInfoOffset: FD->ExtInfoOffset: %u\n", FD->ExtInfoOffset);
         unsigned int offset = 0;
         while (E->name[0] != '\0') {
+            tempE = *rawE;
+            if (isBigEndian) {
+                // Swap the bytes of the fields in the temporary copy
+                tempE.ExtInfoEntrySize = util::swapEndian16(rawE->ExtInfoEntrySize);
+                tempE.size = util::swapEndian32(rawE->size);
+            }
+
+            // Use tempE as if it's the original E
+            E = &tempE;
+            DPRINTF("isBigEndian: %d\n", isBigEndian);
+            DPRINTF("E->name: %s\n", E->name);
+            DPRINTF("E->ExtInfoEntrySize: %x\n", E->ExtInfoEntrySize);
+            DPRINTF("E->size: %u\n", E->size);
+
             if (strncmp(file.c_str(), (const char*) E->name, sizeof(E->name)) == 0) {
                 FD->FileOffset = offset;
                 FD->size = E->size;
                 FD->ExtInfoEntrySize = E->ExtInfoEntrySize;
+                DPRINTF("FD.size: %x, FD.ExtInfoOffset: %x, FD.ExtInfoEntrySize: %x\n", FD->size, FD->ExtInfoOffset, FD->ExtInfoEntrySize);
+
                 result = RET_OK;
                 break;
             }
 
             FD->ExtInfoOffset += E->ExtInfoEntrySize;
             offset += (E->size + 0xF) & ~0xF;
-            E++;
+            rawE++;
         }
     } else
         result = -rerrno::ENOXTINF;
@@ -221,9 +302,30 @@ int rom::GetExtInfoOffset(filefd* fd) {
     rom::DirEntry* E;
     int result = -rerrno::ENOXTINF;
     unsigned int offset;
-    E = (rom::DirEntry*) image.fstart_ptr;
+
+    rom::DirEntry* rawE = (rom::DirEntry*) image.fstart_ptr;  // Pointer to the original data
+    rom::DirEntry tempE = *rawE;
+    if (isBigEndian) {
+        // Swap the bytes of the fields in the temporary copy
+        tempE.ExtInfoEntrySize = util::swapEndian16(tempE.ExtInfoEntrySize);
+        tempE.size = util::swapEndian32(tempE.size);
+    }
+
+    // Use tempE as if it's the original E
+    E = &tempE;
+
     offset = 0;
     while (E->name[0] != '\0') {
+        tempE = *rawE;
+        if (isBigEndian) {
+            // Swap the bytes of the fields in the temporary copy
+            tempE.ExtInfoEntrySize = util::swapEndian16(tempE.ExtInfoEntrySize);
+            tempE.size = util::swapEndian32(tempE.size);
+        }
+
+        // Use tempE as if it's the original E
+        E = &tempE;
+        DPRINTF("E->name: %s, E->ExtInfoEntrySize: %x, E->size: %u, offset: %u\n", E->name, E->ExtInfoEntrySize, E->size, offset);
         if (strncmp("EXTINFO", (const char*) E->name, sizeof(E->name)) == 0) {
             fd->ExtInfoOffset = offset;
             image.fstart2 = offset + (E->size + 0xF) & ~0xF;
@@ -232,7 +334,7 @@ int rom::GetExtInfoOffset(filefd* fd) {
         }
 
         offset += (E->size + 0xF) & ~0xF;
-        E++;
+        rawE++;
     }
 
     return result;
@@ -241,9 +343,21 @@ int rom::GetExtInfoOffset(filefd* fd) {
 int rom::GetExtInfoStat(filefd* fd, uint8_t type, void** buffer, uint32_t nbytes) {
     int ret = -ENOENT;
     unsigned int offset = 0, BytesToCopy;
+    // Ensure FD and data are valid
+    if (!fd || !buffer) {
+        return -EINVAL;
+    }
+    DPRINTF("ExtInfoOffset: %u\n", fd->ExtInfoOffset);
 
     while (offset < fd->ExtInfoEntrySize) {
-        ExtInfoFieldEntry* E = (ExtInfoFieldEntry*) (image.data + fd->ExtInfoOffset + offset);
+        ExtInfoFieldEntry* rawE = (ExtInfoFieldEntry*) (image.data + fd->ExtInfoOffset + offset);  // Pointer to the original data
+        // Swap the entire structure (4 bytes) using uint32_t
+        ExtInfoFieldEntry tempE = *rawE;
+        if (isBigEndian)
+            *(uint32_t*) &tempE = util::swapEndian32(*(uint32_t*) rawE);
+
+        // Use tempE as if it's the original E
+        ExtInfoFieldEntry* E = &tempE;
 
         if (E->type == EXTINFO_FIELD_TYPE_DATE || E->type == EXTINFO_FIELD_TYPE_COMMENT) {
             if (type == E->type) {
@@ -261,6 +375,12 @@ int rom::GetExtInfoStat(filefd* fd, uint8_t type, void** buffer, uint32_t nbytes
                 }
 
                 memcpy(*buffer, &((const unsigned char*) image.data)[fd->ExtInfoOffset + offset + sizeof(ExtInfoFieldEntry)], BytesToCopy);
+                // If big-endian, swap the buffer content
+                if (isBigEndian && E->type == EXTINFO_FIELD_TYPE_DATE) {
+                    *(uint32_t*) (*buffer) = util::swapEndian32(*(uint32_t*) (*buffer));
+                }
+                DPRINTF("_E->type: %u, BytesToCopy: %x, Offset: 0x%x\n", E->type, BytesToCopy, fd->ExtInfoOffset + offset);
+                DPRINTF("Raw Buffer: %08x\n", *(uint32_t*) (*buffer));
                 break;
             }
             offset += (sizeof(ExtInfoFieldEntry) + E->ExtLength);
@@ -303,7 +423,14 @@ int rom::CheckExtInfoStat(filefd* fd, uint8_t type) {
     unsigned int offset = 0;
 
     while (offset < fd->ExtInfoEntrySize) {
-        ExtInfoFieldEntry* E = (ExtInfoFieldEntry*) (image.data + fd->ExtInfoOffset);
+        ExtInfoFieldEntry* rawE = (ExtInfoFieldEntry*) (image.data + fd->ExtInfoOffset + offset);  // Pointer to the original data
+        // Swap the entire structure (4 bytes) using uint32_t
+        ExtInfoFieldEntry tempE = *rawE;
+        if (isBigEndian)
+            *(uint32_t*) &tempE = util::swapEndian32(*(uint32_t*) rawE);
+
+        // Use tempE as if it's the original E
+        ExtInfoFieldEntry* E = &tempE;
 
         if (E->type == EXTINFO_FIELD_TYPE_DATE || E->type == EXTINFO_FIELD_TYPE_COMMENT) {
             if (type == E->type) {
@@ -353,7 +480,7 @@ int rom::addFile(std::string path, bool isFixed, bool isDate, uint16_t version) 
 
         FileEntry file;
         // Files cannot exist more than once in an image. The RESET entry is special here because all images will have a RESET entry, but it might be empty (If it has no content, allow the user to add in content).
-        if (strcmp(Fname, "RESET")) {
+        if (strncmp(Fname, "RESET", 5)) {
             if (rom::fileExists(Fname) != RET_OK) {
                 memset(&file, 0, sizeof(FileEntry));
                 strncpy((char*) file.RomDir.name, Fname, sizeof(file.RomDir.name));
@@ -564,6 +691,12 @@ int rom::displayContents() {
         filename[sizeof(filename) - 1] = '\0';
         uint8_t* S = files[i].ExtInfoData;
         int x = files[i].RomDir.ExtInfoEntrySize;
+        DPRINTF("x: %u\n", x);
+        DPRINTF("files[%zu].RomDir.name: %s\n", i, files[i].RomDir.name);
+        DPRINTF("files[%zu].RomDir.ExtInfoEntrySize: %u\n", i, files[i].RomDir.ExtInfoEntrySize);
+        DPRINTF("files[%zu].RomDir.size: %u\n", i, files[i].RomDir.size);
+        DPRINTF("files[%zu].FileData: %p\n", i, files[i].FileData);
+        DPRINTF("files[%zu].ExtInfoData: %p\n", i, files[i].ExtInfoData);
         bool hd = false,
              hv = false,
              hc = false,
@@ -576,6 +709,8 @@ int rom::displayContents() {
         date_helper dh = {0};
         uint16_t version = 0;
         for (int z = 0; z < x;) {
+            DPRINTF("z = %d, hexdump: %s\n", z, filename);
+            util::hexdump(S, 16);
             switch (((ExtInfoFieldEntry*) S)->type) {
                 case EXTINFO_FIELD_TYPE_DATE:
                     a = ((ExtInfoFieldEntry*) S)->ExtLength + sizeof(ExtInfoFieldEntry);
@@ -698,7 +833,7 @@ int rom::dumpContents(void) {
     }
     fprintf(Fconf, "#Name,FixedOffset,Date,Version,Comment,Size,CRC32\n");
 
-    util::genericgaugepercent(0, "RESET");
+    util::genericgaugepercent(0, "ROMDIR");
     for (i = -1; i == -1 || i < files.size(); i++) {
         romDirName = (i == -1) ? "ROMDIR" : (char*) files[i].RomDir.name;
         void* pdate = malloc(sizeof(rom::date));
