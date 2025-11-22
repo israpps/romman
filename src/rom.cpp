@@ -547,6 +547,7 @@ int rom::displayContents() {
                 }
             }
             if (!is_empty) {
+                is_empty = true;
                 for (size_t j = 0; j < files[i].RomDir.size; j++) {
                     if (((uint8_t*) files[i].FileData)[j] != 0xFF) {
                         is_empty = false;
